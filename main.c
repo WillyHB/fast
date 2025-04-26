@@ -12,13 +12,24 @@
 #include <X11/Xft/Xft.h>
 #include "stack.h"
 
+enum InputType {
+    ASCII,
+    SYM, 
+};
+typedef struct Input {
+    enum InputType type;
+    union data {
+        char ascii;
+        KeySym sym;
+    } data;
+} Input;
+
 void draw();
-char parse(XEvent*);
+void parse(XEvent*, Input*);
 XftColor *get_color(unsigned char r, unsigned char g, unsigned char b, unsigned char a, Display *dpy, int *screen);
 
 int main(int argc, char *argv[]) {
     
-    Stack stack;
     int width = 250;
     int height = 250;
     int line_height = 0;
@@ -58,6 +69,8 @@ int main(int argc, char *argv[]) {
 
     char line[256];
     int end = 0;
+    Input *i = malloc(sizeof(Input));
+    Stack *stack = stack_init();
 
     for (;;) {
 
@@ -68,19 +81,13 @@ int main(int argc, char *argv[]) {
             height = event.xexpose.height;
         } else if (event.type == KeyPress) {
 
-            char c = parse(&event);
-            printf("%d\n", c);
+            parse(&event, i);
 
-            if (c == 0) {
-                if (end > 0) {
-                    end--;
-                }
-            } else if (c > 0) {
-
-                if (c == 13 || c == 10) {
+            if (i->type == ASCII) {
+                if (i->data.ascii == 13 || i->data.ascii == 10) {
                     
                     printf("command!\n");
-                    push(&stack, strdup(line));
+                    push(stack, strdup(line));
                     memset(line, 0, 256);
                     end = 0;
                     line_height += font->height;
@@ -92,8 +99,13 @@ int main(int argc, char *argv[]) {
                 //} else if (c == ) {
                 
                 } else {
-                    line[end] = c;
+                    line[end] = i->data.ascii;
                     end++;
+                }
+            } else {
+                if (i->data.sym == XK_BackSpace) {
+                    end--;
+                    line[end] = 0;
                 }
 
             }
@@ -107,27 +119,34 @@ int main(int argc, char *argv[]) {
 
     XftDrawDestroy(draw);
     XftColorFree(dpy, DefaultVisual(dpy,screen), DefaultColormap(dpy,screen), green);
+    free(i);
 }
 
 // Need to be able to return a union perhaps of char or KeySym like and a boolean or enum to see if it's printable or not
-char parse(XEvent *event) {
+void parse(XEvent *event, Input *input) {
+    if (event == NULL || input == NULL) {
+        fprintf(stderr, "Can't pass null pointers to parse");
+        return;
+    }
 
     char *buff = calloc(32, sizeof(char));
 
     KeySym sym = XLookupKeysym(&event->xkey, 0);
     
-    if (sym == XK_BackSpace) {
-        return 0;
-    }
-
     int symbol = XLookupString(&event->xkey, buff, sizeof(buff), &sym, NULL);
-    if (!symbol) {
-        return -1;
+    if (!symbol || sym == XK_BackSpace || sym == XK_Escape) {
+        input->type = SYM;
+        input->data.sym = sym;
+    } else {
+        if (buff[0] == '\t') {
+            printf("Wow awesome!\n");
+
+        }
+        input->type = ASCII;
+        input->data.ascii = buff[0];
     }
 
-    return buff[0];
-
-    //char *string = XKeysymToString(sym);
+    free(buff);
 }
 
 XftColor *get_color(unsigned char r, unsigned char g, unsigned char b, unsigned char a, Display *dpy, int *screen) {

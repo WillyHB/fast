@@ -1,7 +1,12 @@
 #include "stack.h"
 #include <stdlib.h>
 
-Stack * create_stack() {
+void free_stack(Stack *stack) {
+    clear(stack);
+    free(stack);
+}
+
+Stack * stack_init() {
     Stack *stack = malloc(sizeof(Stack));
     stack->head = NULL;
     return stack;
@@ -64,6 +69,14 @@ void * pop(Stack *stack) {
     return data;
 }
 
+void clear_loop(Node *node) {
+    if (node != NULL) {
+        free(node->data);
+        clear_loop(node->next);
+        node = NULL;
+    }
+}
+
 // Frees all data
 void clear(Stack *stack) {
     if (stack == NULL) {
@@ -73,8 +86,6 @@ void clear(Stack *stack) {
 
     Node *search = stack->head;
 
-    while (search->next != NULL) {
-        free(search->data);
-        search = search->next;
-    }
+    clear_loop(search);
 }
+

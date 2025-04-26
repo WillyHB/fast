@@ -15,11 +15,12 @@ typedef struct Stack {
 
 } Stack;
 
-Stack *create_stack();
+Stack *stack_init();
 void push(Stack*, void *data);
 void* pop(Stack*);
 void* peek(Stack*);
 void clear(Stack*);
+void free_stack(Stack*);
 
 #endif
 
