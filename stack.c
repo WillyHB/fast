@@ -47,7 +47,9 @@ void * peek(Stack *stack) {
         return NULL;
     }
 
-    return &stack->head->data;
+    printf("PEEKING!\n");
+
+    return stack->head->data;
 }
 
 void * pop(Stack *stack) {
@@ -62,9 +64,10 @@ void * pop(Stack *stack) {
 
     void *data = stack->head->data;
 
-    printf("pop called? ");
-
     stack->head = stack->head->next;
+
+    free(stack->head->prev);
+    stack->head->prev = NULL;
 
     return data;
 }

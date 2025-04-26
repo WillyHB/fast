@@ -24,6 +24,11 @@ typedef struct Input {
     } data;
 } Input;
 
+typedef struct History {
+    char *command;
+    int end;
+} History;
+
 void draw();
 void parse(XEvent*, Input*);
 XftColor *get_color(unsigned char r, unsigned char g, unsigned char b, unsigned char a, Display *dpy, int *screen);
@@ -67,6 +72,7 @@ int main(int argc, char *argv[]) {
     XftDraw *draw = XftDrawCreate(dpy, w, DefaultVisual(dpy, screen), DefaultColormap(dpy, screen));
     XftColor *green = get_color(0, 255, 255, 10, dpy, &screen);
 
+    char *lines[256];
     char line[256];
     int end = 0;
     Input *i = malloc(sizeof(Input));
@@ -86,8 +92,19 @@ int main(int argc, char *argv[]) {
             if (i->type == ASCII) {
                 if (i->data.ascii == 13 || i->data.ascii == 10) {
                     
-                    printf("command!\n");
-                    push(stack, strdup(line));
+
+
+                    // Have a big array or queue or whatever where 0 is current command and 1 2 3 4 are previous commands in stack order
+
+
+
+
+                    // Scope of h outlives scope of stack so we must malloc so no undefined behaviour
+                    History *h = malloc(sizeof(History)); 
+                    h->command = strdup(line);
+                    h->end = end;
+                    
+                    push(stack, h);
                     memset(line, 0, 256);
                     end = 0;
                     line_height += font->height;
@@ -99,15 +116,29 @@ int main(int argc, char *argv[]) {
                 //} else if (c == ) {
                 
                 } else {
-                    line[end] = i->data.ascii;
-                    end++;
+                    line[end++] = i->data.ascii; //post increment
                 }
             } else {
-                if (i->data.sym == XK_BackSpace) {
-                    end--;
-                    line[end] = 0;
-                }
+                switch (i->data.sym) {
+                    case XK_BackSpace:
+                        if (end > 0) {
+                        line[--end] = 0; // pre increment
+                        }
+                        break;
+                    case XK_Up: 
 
+                          History *h = peek(stack);
+                          h = peek(stack);
+                          if (h == NULL) { break; }
+                          printf("Test: %s\n", h->command);
+                          strcpy(line,h->command);
+                          end = h->end;
+                          free(h->command);
+                          free(h);
+                          break;
+
+
+                }
             }
         }
 
