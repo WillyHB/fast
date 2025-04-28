@@ -1,7 +1,10 @@
 all: main
 
-main: main.o stack.o
-	gcc -o term main.o stack.o -lX11 -lXft
+main: main.o stack.o db_linked_list.o
+	gcc -o term main.o stack.o db_linked_list.o -lX11 -lXft
+
+db_linked_list.o: db_linked_list.c
+	gcc -c db_linked_list.c
 
 stack.o: stack.c
 	gcc -c stack.c

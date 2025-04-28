@@ -1,5 +1,4 @@
 #include <X11/X.h>
-#include <ctype.h>
 #include <fontconfig/fontconfig.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -10,12 +9,13 @@
 #include <X11/keysym.h>
 #include <X11/Xutil.h>
 #include <X11/Xft/Xft.h>
-#include "stack.h"
+#include "db_linked_list.h"
 
 enum InputType {
     ASCII,
     SYM, 
 };
+
 typedef struct Input {
     enum InputType type;
     union data {
@@ -24,10 +24,10 @@ typedef struct Input {
     } data;
 } Input;
 
-typedef struct History {
+typedef struct Command {
     char *command;
-    int end;
-} History;
+    int len;
+} Command;
 
 void draw();
 void parse(XEvent*, Input*);
@@ -39,6 +39,7 @@ int main(int argc, char *argv[]) {
     int height = 250;
     int line_height = 0;
     XEvent event;
+    int ctrl = 0;
 
     // Connection to X server, holds all information about the server
     Display *dpy = XOpenDisplay(NULL);
@@ -67,16 +68,18 @@ int main(int argc, char *argv[]) {
     // Setup font stuff
     // Font pattern : family-size:options
     XftFont *font = XftFontOpenName(dpy, screen, "Liberation-16");
-    printf("HEIGHT %d\n", font->height);
 
     XftDraw *draw = XftDrawCreate(dpy, w, DefaultVisual(dpy, screen), DefaultColormap(dpy, screen));
     XftColor *green = get_color(0, 255, 255, 10, dpy, &screen);
 
-    char *lines[256];
-    char line[256];
-    int end = 0;
+    int hc = 0;
+    
     Input *i = malloc(sizeof(Input));
-    Stack *stack = stack_init();
+    List *list = init_list();
+    Command *cur = malloc(sizeof(Command));
+    cur->command = calloc(256, sizeof(char));
+    cur->len = 0;
+    add_first(list, cur);
 
     for (;;) {
 
@@ -89,55 +92,73 @@ int main(int argc, char *argv[]) {
 
             parse(&event, i);
 
+            //printf("Type %d and data %d\n", i->type, i->data.ascii);
+
             if (i->type == ASCII) {
                 if (i->data.ascii == 13 || i->data.ascii == 10) {
-                    
 
+                    set_first(list, cur);
+                    // replace with new memory
+                    cur = malloc(sizeof(Command));
+                    cur->command = calloc(256, sizeof(char));
+                    cur->len = 0;
 
-                    // Have a big array or queue or whatever where 0 is current command and 1 2 3 4 are previous commands in stack order
+                    // add a new element in the history
+                    add_first(list, cur);
 
-
-
-
-                    // Scope of h outlives scope of stack so we must malloc so no undefined behaviour
-                    History *h = malloc(sizeof(History)); 
-                    h->command = strdup(line);
-                    h->end = end;
-                    
-                    push(stack, h);
-                    memset(line, 0, 256);
-                    end = 0;
+                    hc = 0;
                     line_height += font->height;
                     // command
                     // reset line
                     // add to history
                     // etc
-
-                //} else if (c == ) {
                 
+                } else if (i->data.ascii == 21) {
+                    puts("DELETE");
+
                 } else {
-                    line[end++] = i->data.ascii; //post increment
+                    cur->command[cur->len++] = i->data.ascii; //post increment
                 }
             } else {
                 switch (i->data.sym) {
                     case XK_BackSpace:
-                        if (end > 0) {
-                        line[--end] = 0; // pre increment
+                        if (cur->len > 0) {
+                        cur->command[--cur->len] = 0; // pre increment
                         }
                         break;
                     case XK_Up: 
 
-                          History *h = peek(stack);
-                          h = peek(stack);
-                          if (h == NULL) { break; }
-                          printf("Test: %s\n", h->command);
-                          strcpy(line,h->command);
-                          end = h->end;
-                          free(h->command);
-                          free(h);
+                          cur = get(list, hc);
+                          if (cur == NULL) { break; }
+                          if (hc < (list->count-1) ) { hc++; }
                           break;
 
+                    case XK_Down:
+                          if (hc > 0) { hc--; }
 
+                          cur = get(list, hc);
+                          printf("HUH: %d\n", hc);
+                          if (cur == NULL) { break; }
+                          break;
+
+                    case XK_Control_L:
+                    case XK_Control_R:
+                          ctrl = 1;
+                          break;
+                }
+            } 
+        } else if (event.type == KeyRelease) {
+
+            parse(&event, i);
+
+            if (i->type == SYM) {
+                switch (i->data.sym) {
+
+                    case XK_Control_L:
+                    case XK_Control_R:
+                        puts("hewo");
+                        ctrl = 0;
+                        break;
                 }
             }
         }
@@ -145,7 +166,7 @@ int main(int argc, char *argv[]) {
         XSetForeground(dpy, gc, black);
         XFillRectangle(dpy, w, gc, 0, 0, width, height);
         XSetForeground(dpy, gc, white);
-        XftDrawString8(draw, green,font,10,50+line_height,(FcChar8*)line,end);
+        XftDrawString8(draw, green,font,10,50+list->count*font->height,(FcChar8*)cur->command,cur->len);
     }
 
     XftDrawDestroy(draw);

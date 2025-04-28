@@ -18,13 +18,16 @@ void add_last(List *l, void *data) {
     Node *node = malloc(sizeof(Node));
     node->data = data;
     node->next = NULL;
+    node->prev = NULL;
 
-    if (l->head == NULL) {
+    if (l->count <= 0) {
         l->head = node;
-        l->tail = node;
+    } else {
+        // Wait a moment.
+        node->prev = l->tail;
+        node->prev->next = node;
     }
 
-    l->tail->next = node;
     l->tail = node;
 
     l->count++;
@@ -38,8 +41,17 @@ void add_first(List *l, void *data) {
 
     Node *node = malloc(sizeof(Node));
     node->data = data;
+    node->next = NULL;
+    node->prev = NULL;
+
+    // So first element is the tail and head
+    if (l->count <= 0) {
+        l->tail = node;
+    } else {
+        node->next = l->head;
+        node->next->prev = node;
+    }
     
-    node->next = l->head;
     l->head = node;
 
     l->count++;
@@ -47,21 +59,111 @@ void add_first(List *l, void *data) {
 
 void * get(List *l, int i) {
 
-    if (l == NULL) {
-        fprintf(stderr, "List cannot be null\n");
-    }
+    if (l == NULL) { fprintf(stderr, "List cannot be null\n"); }
+    if (i > l->count || i < 0) { return NULL; }
 
-    if (i > l->count) { return NULL; }
+    Node *search;
 
-    Node *search = l->head;
-    for (int j = 0; j <= i; j++) {
-        if (search->next == NULL) {
-            fprintf(stderr, "Error, count of linked list is wrong\n");
-
+    if (i > l->count/2) {
+        search = l->tail;
+        printf("this is where it fails?\n");
+        for (int j = l->count-1; j > i; j--) {
+            printf("III: %d\n", i);
+            if (search->prev == NULL) {
+                fputs("Error, count of linked list is wrong", stderr);
+            }
+            search = search->prev;
         }
-        search = search->next;
+
+    } else {
+        search = l->head;
+        printf("this is where it fails? THIS IS THE HEAD\n");
+        for (int j = 0; j < i; j++) {
+            if (search->next == NULL) {
+                fputs("Error, count of linked list is wrong", stderr);
+            }
+            search = search->next;
+        }
+
     }
 
     return search->data;
 }
+
+void *get_last(List *list) {
+    if (list == NULL) { return NULL; }
+    if (list->count <= 0) { return NULL; }
+    return list->tail->data;
+}
+
+void *get_first(List *list) {
+    if (list == NULL) { return NULL; }
+    if (list->count <= 0) { return NULL; }
+    return list->head->data;
+}
+
+void *remove_first(List *list) {
+    if (list == NULL) { return NULL; }
+    if (list->count <= 0) { return NULL; }
+
+    Node *n = list->head;
+    void *data = n->data;
+    free (n);
+
+    list->head = list->head->next;
+    list->count--;
+    
+    return data;
+}
+
+void *remove_last(List *list) {
+    if (list == NULL) { return NULL; }
+    if (list->count <= 0) { return NULL; }
+
+    Node *n = list->tail;
+    void *data = n->data;
+    free(n);
+    list->tail = list->tail->prev;
+
+    list->count--;
+
+    return data;
+}
+
+void *remove_at(List *list, int index) {
+    if (list == NULL) { return NULL; }
+    if (index >= list->count) { return NULL; }
+
+    Node *search = list->head;
+
+    // Loop until we get the node right before the one we wish to delete
+    for (int i = 0; i < index-1; i++) {
+        search = search->next;
+    }
+
+    // Store the one we want to delete
+    Node *n = search->next;
+    void *data = n->data;
+    free(n);
+
+    // replace next node with node 1 over
+    search->next = search->next->next;
+
+    // free deleted node
+    return data;
+}
+
+void set(List *list, int index, void *data) {
+
+}
+
+void set_last(List *list, void *data) {
+    list->tail->data = data;
+}
+
+void set_first(List *list, void *data) {
+    list->head->data = data;
+}
+
+
 
