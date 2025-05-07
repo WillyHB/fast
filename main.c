@@ -1,5 +1,4 @@
 #include <X11/X.h>
-#include <fontconfig/fontconfig.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -7,13 +6,13 @@
 #include <X11/Xlib.h>
 #include <termios.h>
 #include <X11/keysym.h>
-#include <X11/Xutil.h>
-#include <X11/Xft/Xft.h>
 #include "db_linked_list.h"
+#include "output.h"
 
 enum InputType {
     ASCII,
     SYM, 
+    NONE,
 };
 
 typedef struct Input {
@@ -29,15 +28,12 @@ typedef struct Command {
     int len;
 } Command;
 
-void draw();
 void parse(XEvent*, Input*);
-XftColor *get_color(unsigned char r, unsigned char g, unsigned char b, unsigned char a, Display *dpy, int *screen);
 
 int main(int argc, char *argv[]) {
     
     int width = 250;
     int height = 250;
-    int line_height = 0;
     XEvent event;
     int ctrl = 0;
 
@@ -65,12 +61,7 @@ int main(int argc, char *argv[]) {
     long event_mask = ExposureMask | KeyPressMask | KeyReleaseMask | StructureNotifyMask;
     XSelectInput(dpy, w, event_mask);
 
-    // Setup font stuff
-    // Font pattern : family-size:options
-    XftFont *font = XftFontOpenName(dpy, screen, "Liberation-16");
-
-    XftDraw *draw = XftDrawCreate(dpy, w, DefaultVisual(dpy, screen), DefaultColormap(dpy, screen));
-    XftColor *green = get_color(0, 255, 255, 10, dpy, &screen);
+    init_output(dpy, &w, screen);
 
     int hc = 0;
     
@@ -107,7 +98,6 @@ int main(int argc, char *argv[]) {
                     add_first(list, cur);
 
                     hc = 0;
-                    line_height += font->height;
                     // command
                     // reset line
                     // add to history
@@ -128,23 +118,28 @@ int main(int argc, char *argv[]) {
                         break;
                     case XK_Up: 
 
-                          cur = get(list, hc);
-                          if (cur == NULL) { break; }
-                          if (hc < (list->count-1) ) { hc++; }
-                          break;
+                        /*
+                        Command *g = get(list,hc);      
+                        strcpy(cur->command, g->command);
+                        cur->len = g->len;
+                        */
+
+                        if (hc < (list->count-1) ) { hc++; }
+                        cur = get(list,hc);
+                        if (cur == NULL) { break; }
+                        break;
 
                     case XK_Down:
-                          if (hc > 0) { hc--; }
+                        if (hc > 0) { hc--; }
 
-                          cur = get(list, hc);
-                          printf("HUH: %d\n", hc);
-                          if (cur == NULL) { break; }
-                          break;
+                        cur = get(list,hc);
+                        if (cur == NULL) { break; }
+                        break;
 
                     case XK_Control_L:
                     case XK_Control_R:
-                          ctrl = 1;
-                          break;
+                        ctrl = 1;
+                        break;
                 }
             } 
         } else if (event.type == KeyRelease) {
@@ -166,11 +161,13 @@ int main(int argc, char *argv[]) {
         XSetForeground(dpy, gc, black);
         XFillRectangle(dpy, w, gc, 0, 0, width, height);
         XSetForeground(dpy, gc, white);
-        XftDrawString8(draw, green,font,10,50+list->count*font->height,(FcChar8*)cur->command,cur->len);
+        
+        print(dpy, cur->command, cur->len);
+        
+        //XftDrawString8(draw, green,font,10,50+list->count*font->height,(FcChar8*)cur->command,cur->len);
     }
 
-    XftDrawDestroy(draw);
-    XftColorFree(dpy, DefaultVisual(dpy,screen), DefaultColormap(dpy,screen), green);
+    close_output(dpy, screen);
     free(i);
 }
 
@@ -191,7 +188,7 @@ void parse(XEvent *event, Input *input) {
         input->data.sym = sym;
     } else {
         if (buff[0] == '\t') {
-            printf("Wow awesome!\n");
+            input->type = NONE;
 
         }
         input->type = ASCII;
@@ -201,13 +198,3 @@ void parse(XEvent *event, Input *input) {
     free(buff);
 }
 
-XftColor *get_color(unsigned char r, unsigned char g, unsigned char b, unsigned char a, Display *dpy, int *screen) {
-    XftColor *color = malloc(sizeof(XftColor));
-    short red = (short)((r / (float)255) * 65535);
-    short green = (short)((g / (float)255) * 65535);
-    short blue = (short)((b / (float)255) * 65535);
-    short alpha = (short)((a / (float)255) * 65535);
-    const XRenderColor xcolor = { .red = red, .alpha = alpha, .green = green, .blue = blue };
-    XftColorAllocValue(dpy, DefaultVisual(dpy, *screen), DefaultColormap(dpy, *screen), &xcolor, color);
-    return color;
-}
