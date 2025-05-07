@@ -1,18 +1,23 @@
 #include "output.h"
+#include <string.h>
+#include <wchar.h>
 
-List list;
+List *history;
+struct Command *current;
 XftColor *white;
 XftFont *font;
 XftDraw *draw;
 
 void init_output(Display* dpy, Drawable *window, int screen) {
+    history = init_list();
+
     // Setup font stuff
-    
     font = XftFontOpenName(dpy, screen, "Liberation-17");
     if (font == NULL) {
         fprintf(stderr, "Opening font failed...");
     }
 
+    // Create area to draw font on
     draw = XftDrawCreate(dpy, *window, DefaultVisual(dpy, screen), DefaultColormap(dpy, screen));
     if (draw == NULL) {
         fprintf(stderr, "Creating Draw failed...");
@@ -21,15 +26,33 @@ void init_output(Display* dpy, Drawable *window, int screen) {
     white = get_color(255, 255, 255, 255, dpy, &screen);
 }
 
-
-//font is not null in beginning... then it is
-// STUPID!
-
-
+// print current line
+void print(Display *dpy,struct Command *command) {
+    current = command;
+}
 
 // have a history data structure that is initialized on intro
-void print(Display *dpy,char *line, int len) {
-    XftDrawString8(draw,white,font,10,50,(FcChar8*)line,len);
+void put(Display *dpy, struct Command *command) {
+    struct Command *c = malloc(sizeof(struct Command));
+    c->command = strdup(command->command);
+    c->len = command->len;
+    add_last(history, c);
+}
+
+void redraw(Display *dpy) {
+    Node *search = history->head;
+    int i = 0;
+    while (search != NULL) {
+        printf("hello? %d\n", i);
+        struct Command *c = (Command*)search->data;
+        XftDrawString8(draw,white,font,10,50 + font->height*i,(FcChar8*)c->command,c->len);
+        search = search->next;
+        ++i;
+    }
+
+    if (current != NULL) {
+    XftDrawString8(draw,white,font,10,50 + font->height*i,(FcChar8*)current->command,current->len);
+    }
 }
 
 void close_output(Display *dpy, int screen) {

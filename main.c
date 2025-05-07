@@ -23,11 +23,6 @@ typedef struct Input {
     } data;
 } Input;
 
-typedef struct Command {
-    char *command;
-    int len;
-} Command;
-
 void parse(XEvent*, Input*);
 
 int main(int argc, char *argv[]) {
@@ -88,6 +83,7 @@ int main(int argc, char *argv[]) {
             if (i->type == ASCII) {
                 if (i->data.ascii == 13 || i->data.ascii == 10) {
 
+                    put(dpy, cur);
                     set_first(list, cur);
                     // replace with new memory
                     cur = malloc(sizeof(Command));
@@ -109,6 +105,7 @@ int main(int argc, char *argv[]) {
                 } else {
                     cur->command[cur->len++] = i->data.ascii; //post increment
                 }
+
             } else {
                 switch (i->data.sym) {
                     case XK_BackSpace:
@@ -142,6 +139,8 @@ int main(int argc, char *argv[]) {
                         break;
                 }
             } 
+
+            print(dpy, cur);
         } else if (event.type == KeyRelease) {
 
             parse(&event, i);
@@ -161,8 +160,7 @@ int main(int argc, char *argv[]) {
         XSetForeground(dpy, gc, black);
         XFillRectangle(dpy, w, gc, 0, 0, width, height);
         XSetForeground(dpy, gc, white);
-        
-        print(dpy, cur->command, cur->len);
+        redraw(dpy);
         
         //XftDrawString8(draw, green,font,10,50+list->count*font->height,(FcChar8*)cur->command,cur->len);
     }
