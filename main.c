@@ -6,8 +6,10 @@
 #include <X11/Xlib.h>
 #include <termios.h>
 #include <X11/keysym.h>
+
 #include "db_linked_list.h"
 #include "output.h"
+#include "settings.h"
 
 enum InputType {
     ASCII,
@@ -31,6 +33,8 @@ int main(int argc, char *argv[]) {
     int height = 250;
     XEvent event;
     int ctrl = 0;
+
+    open_config();
 
     // Connection to X server, holds all information about the server
     Display *dpy = XOpenDisplay(NULL);
@@ -165,6 +169,7 @@ int main(int argc, char *argv[]) {
         //XftDrawString8(draw, green,font,10,50+list->count*font->height,(FcChar8*)cur->command,cur->len);
     }
 
+    close_config();
     close_output(dpy, screen);
     free(i);
 }

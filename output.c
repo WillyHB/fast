@@ -1,6 +1,5 @@
 #include "output.h"
-#include <string.h>
-#include <wchar.h>
+#include "settings.h"
 
 List *history;
 struct Command *current;
@@ -12,7 +11,8 @@ void init_output(Display* dpy, Drawable *window, int screen) {
     history = init_list();
 
     // Setup font stuff
-    font = XftFontOpenName(dpy, screen, "Liberation-17");
+    const char *font_name = get_string("font");
+    font = XftFontOpenName(dpy, screen,font_name);
     if (font == NULL) {
         fprintf(stderr, "Opening font failed...");
     }
