@@ -1,4 +1,6 @@
-#include "stack.h"
+#include "../include/stack.h"
+
+#include <stdio.h>
 #include <stdlib.h>
 
 void free_stack(Stack *stack) {

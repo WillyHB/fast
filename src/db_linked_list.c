@@ -1,4 +1,4 @@
-#include "db_linked_list.h"
+#include "../include/db_linked_list.h"
 
 void *init_list() {
     List *l = malloc(sizeof(List));

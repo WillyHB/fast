@@ -1,14 +1,8 @@
-#ifndef outp
-#define outp
+#ifndef OUTPUT_H
+#define OUTPUT_H
 
-#include <X11/Xutil.h>
 #include "db_linked_list.h"
-#include <fontconfig/fontconfig.h>
-#include <X11/Xlib.h>
 #include <X11/Xft/Xft.h>
-#include <string.h>
-#include <wchar.h>
-#include "settings.h"
 
 typedef struct Command {
     char *command;

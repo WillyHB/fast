@@ -1,7 +1,5 @@
-#include <stdio.h>
-
-#ifndef stackh
-#define stackh
+#ifndef STACK_H
+#define STACK_H
 
 typedef struct Node {
     void *data;

@@ -1,5 +1,12 @@
-#include "output.h"
-#include "settings.h"
+#include "../include/output.h"
+#include "../include/settings.h"
+
+#include <X11/Xutil.h>
+#include <fontconfig/fontconfig.h>
+#include <X11/Xlib.h>
+#include <string.h>
+#include <wchar.h>
+
 
 List *history;
 struct Command *current;
@@ -11,7 +18,11 @@ void init_output(Display* dpy, Drawable *window, int screen) {
     history = init_list();
 
     // Setup font stuff
-    const char *font_name = get_string("font");
+    const char *font_name = get_string("font", "text");
+    if (font_name == NULL) {
+        font_name = DEFAULT_FONT;
+    }
+
     font = XftFontOpenName(dpy, screen,font_name);
     if (font == NULL) {
         fprintf(stderr, "Opening font failed...");
@@ -43,7 +54,6 @@ void redraw(Display *dpy) {
     Node *search = history->head;
     int i = 0;
     while (search != NULL) {
-        printf("hello? %d\n", i);
         struct Command *c = (Command*)search->data;
         XftDrawString8(draw,white,font,10,50 + font->height*i,(FcChar8*)c->command,c->len);
         search = search->next;

@@ -1,22 +1,27 @@
-all: main
+CC = gcc
 
-main: main.o stack.o db_linked_list.o output.o settings.o tomlc17.o
-	gcc -o term main.o stack.o db_linked_list.o output.o settings.o tomlc17.o -lX11 -lXft
+exec := term
 
-tomlc17.o: tomlc17.c
-	gcc -c tomlc17.c
+build_dir :=  ./build
+src_dir = ./src
 
-settings.o: settings.c
-	gcc -c settings.c
+srcs = $(shell find $(src_dir) -name *.c)
 
-output.o: output.c
-	gcc -c output.c -I/usr/include/freetype2 -I/usr/include/X11/Xft 
+# $(srcs:.o=.c) is equal to $(srcs:%.o=%.c)
+# anything in srcs is replaced with build_dir/file.c.o
+objs = $(srcs:%=$(build_dir)/%.o)
+#objs = $(src:%=%.o)
 
-db_linked_list.o: db_linked_list.c
-	gcc -c db_linked_list.c
+ldflags := -lX11 -lXft
 
-stack.o: stack.c
-	gcc -c stack.c
+$(build_dir)/$(exec): $(objs)
+	$(CC) -o $@ $(objs) $(ldflags)
 
-main.o: main.c
-	gcc -c main.c -I/usr/include/freetype2 -I/usr/include/X11/Xft 
+#$< is the first prereq
+$(build_dir)/%.c.o: %.c
+	mkdir -p $(dir $@)
+	$(CC) -o $@ -c $< -I/usr/include/freetype2 -I/usr/include/X11/Xft 
+
+.PHONY: clean
+clean:
+	rm -r $(build_dir)

@@ -7,9 +7,9 @@
 #include <termios.h>
 #include <X11/keysym.h>
 
-#include "db_linked_list.h"
-#include "output.h"
-#include "settings.h"
+#include "../include/db_linked_list.h"
+#include "../include/output.h"
+#include "../include/settings.h"
 
 enum InputType {
     ASCII,
@@ -51,7 +51,6 @@ int main(int argc, char *argv[]) {
     int white = WhitePixel(dpy, screen);
 
     Window w = XCreateSimpleWindow(dpy, DefaultRootWindow(dpy), 0, 0, width, height, 0, white, black);
-
     // Maps the window on the screen
     XMapWindow(dpy, w);
 
