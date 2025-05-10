@@ -40,22 +40,18 @@ int main(int argc, char *argv[]) {
 
     int cpid = forkpty(&amaster, NULL, NULL, NULL);
 
+    //stdout of child proccess, is amaster of the parent? Child process is the slave
     if (cpid == 0) {
-        printf("waah child pid: %d | master: %d | current pid: %d\n", cpid, amaster, getpid());
-        puts("childosos");
+        //stdin comes from master_fd now, stdout is to slave, so also master_fd
 
         char *shell = getenv("SHELL");
         char *argv[] = { shell, 0};
-        //execv(argv[0], argv);
+        execv(argv[0], argv);
         
-        char buf[256] = { 0 };
-        while (read(amaster, buf, 256) <= 0);
-        printf("RECEIVED FROM PARENT %s\n", buf);
-
-        return 0;
+        // should never get past here
     } 
-    printf("this is the parent child pid: %d | master: %d | current pid: %d\n", cpid, amaster, getpid());
 
+    sleep(2);
     char buf[256] = { 0 };
     while (read(amaster, buf, 256) <= 0) {}
     printf("RECEIVED FROM CHILD %s DONE RECEIVING\n", buf);
@@ -110,9 +106,9 @@ int main(int argc, char *argv[]) {
             //printf("Type %d and data %d\n", i->type, i->data.ascii);
 
             if (i->type == ASCII) {
+                write(amaster, &i->data.ascii, 1);
                 if (i->data.ascii == 13 || i->data.ascii == 10) {
 
-                    printf("%s\n", cur->command);
                     //sygtem(cur->command);
                     put(dpy, cur);
                     set_first(list, cur);
