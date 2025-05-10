@@ -6,6 +6,7 @@
 #include <X11/Xlib.h>
 #include <termios.h>
 #include <X11/keysym.h>
+#include <pty.h>
 
 #include "../include/db_linked_list.h"
 #include "../include/output.h"
@@ -33,6 +34,31 @@ int main(int argc, char *argv[]) {
     int height = 250;
     XEvent event;
     int ctrl = 0;
+
+
+    int amaster;
+
+    int cpid = forkpty(&amaster, NULL, NULL, NULL);
+
+    if (cpid == 0) {
+        printf("waah child pid: %d | master: %d | current pid: %d\n", cpid, amaster, getpid());
+        puts("childosos");
+
+        char *shell = getenv("SHELL");
+        char *argv[] = { shell, 0};
+        //execv(argv[0], argv);
+        
+        char buf[256] = { 0 };
+        while (read(amaster, buf, 256) <= 0);
+        printf("RECEIVED FROM PARENT %s\n", buf);
+
+        return 0;
+    } 
+    printf("this is the parent child pid: %d | master: %d | current pid: %d\n", cpid, amaster, getpid());
+
+    char buf[256] = { 0 };
+    while (read(amaster, buf, 256) <= 0) {}
+    printf("RECEIVED FROM CHILD %s DONE RECEIVING\n", buf);
 
     open_config();
 
@@ -86,6 +112,8 @@ int main(int argc, char *argv[]) {
             if (i->type == ASCII) {
                 if (i->data.ascii == 13 || i->data.ascii == 10) {
 
+                    printf("%s\n", cur->command);
+                    //sygtem(cur->command);
                     put(dpy, cur);
                     set_first(list, cur);
                     // replace with new memory
@@ -97,6 +125,7 @@ int main(int argc, char *argv[]) {
                     add_first(list, cur);
 
                     hc = 0;
+
                     // command
                     // reset line
                     // add to history

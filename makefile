@@ -14,7 +14,7 @@ objs = $(srcs:%=$(build_dir)/%.o)
 
 ldflags := -lX11 -lXft
 
-$(build_dir)/$(exec): $(objs)
+$(exec): $(objs)
 	$(CC) -o $@ $(objs) $(ldflags)
 
 #$< is the first prereq
