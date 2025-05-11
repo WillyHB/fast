@@ -27,7 +27,7 @@ typedef struct Input {
     } data;
 } Input;
 
-void parse(XEvent*, Input*);
+char parse(XEvent*);
 
 int main(int argc, char *argv[]) {
 
@@ -85,7 +85,6 @@ int main(int argc, char *argv[]) {
 
     int hc = 0;
 
-    Input *i = malloc(sizeof(Input));
     List *list = init_list();
     Command *cur = malloc(sizeof(Command));
     cur->command = calloc(256, sizeof(char));
@@ -95,7 +94,6 @@ int main(int argc, char *argv[]) {
     for (;;) {
 
         FD_ZERO(&readset);
-
         FD_SET(amaster, &readset);
         FD_SET(x11_fd, &readset);
 
@@ -108,7 +106,9 @@ int main(int argc, char *argv[]) {
 
             if (FD_ISSET(amaster, &readset)) {
                 int n = read(amaster,readbuf,2048);
-                printf("%s\n",readbuf);
+
+                write(STDOUT_FILENO, readbuf, n);
+                print(dpy, readbuf, n);
                 memset(readbuf, 0, 2048);
                 
                 XSetForeground(dpy, gc, black);
@@ -126,15 +126,10 @@ int main(int argc, char *argv[]) {
                         height = event.xexpose.height;
                     } else if (event.type == KeyPress) {
 
-                        parse(&event, i);
+                        char c = parse(&event);
 
-                        //printf("Type %d and data %d\n", i->type, i->data.ascii);
-
-                        if (i->type == ASCII) {
-                            write(amaster, &i->data.ascii, 1);
+                        write(amaster, &c, 1);
                             /*
-                               if (i->data.ascii == 13 || i->data.ascii == 10) {
-
                             //sygtem(cur->command);
                             put(dpy, cur);
                             set_first(list, cur);
@@ -161,6 +156,7 @@ int main(int argc, char *argv[]) {
                             }
                             */
                         } else {
+                            /*
                             switch (i->data.sym) {
                                 case XK_BackSpace:
                                     if (cur->len > 0) {
@@ -179,6 +175,7 @@ int main(int argc, char *argv[]) {
                                     if (cur == NULL) { break; }
                                     break;
                             }
+                            */
                         } 
                     }
                 }
@@ -188,42 +185,26 @@ int main(int argc, char *argv[]) {
 
 
 
+
         //XftDrawString8(draw, green,font,10,50+list->count*font->height,(FcChar8*)cur->command,cur->len);
-    }
 
     close_config();
     close_output(dpy, screen);
-    free(i);
 }
 
 // Need to be able to return a union perhaps of char or KeySym like and a boolean or enum to see if it's printable or not
-void parse(XEvent *event, Input *input) {
-    if (event == NULL || input == NULL) {
+char parse(XEvent *event) {
+    if (event == NULL) {
         fprintf(stderr, "Can't pass null pointers to parse");
-        return;
+        return 0;
     }
 
-    char *buff = calloc(32, sizeof(char));
+    char buff[8];
 
     KeySym sym = XLookupKeysym(&event->xkey, 0);
 
     int symbol = XLookupString(&event->xkey, buff, sizeof(buff), &sym, NULL);
-    input->type = ASCII;
-    input->data.ascii = buff[0];
-    return;
 
-    if (!symbol || sym == XK_BackSpace || sym == XK_Escape) {
-        input->type = SYM;
-        input->data.sym = sym;
-    } else {
-        if (buff[0] == '\t') {
-            input->type = NONE;
-
-        }
-        input->type = ASCII;
-        input->data.ascii = buff[0];
-    }
-
-    free(buff);
+    return buff[0];
 }
 

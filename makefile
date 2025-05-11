@@ -1,27 +1,28 @@
 CC = gcc
 
-exec := term
+EXEC := term
 
-build_dir :=  ./build
-src_dir = ./src
+BUILD_DIR :=  ./build
+SRC_DIR = ./src
 
-srcs = $(shell find $(src_dir) -name *.c)
+SRCS = $(shell find $(SRC_DIR) -name *.c)
 
 # $(srcs:.o=.c) is equal to $(srcs:%.o=%.c)
 # anything in srcs is replaced with build_dir/file.c.o
-objs = $(srcs:%=$(build_dir)/%.o)
+OBJS = $(srcs:%=$(BUILD_DIR)/%.o)
 #objs = $(src:%=%.o)
 
-ldflags := -lX11 -lXft
+LDFLAGS := -lX11 -lXft
+LIBRARIES := -I/usr/include/freetype2 -I/usr/include/X11/Xft 
 
-$(exec): $(objs)
-	$(CC) -o $@ $(objs) $(ldflags)
+$(EXEC): $(OBJS)
+	$(CC) -o $@ $(OBJS) $(LDFLAGS)
 
 #$< is the first prereq
-$(build_dir)/%.c.o: %.c
+$(BUILD_DIR)/%.c.o: %.c
 	mkdir -p $(dir $@)
-	$(CC) -o $@ -c $< -I/usr/include/freetype2 -I/usr/include/X11/Xft 
+	$(CC) -o $@ -c $< $(LIBRARIES)
 
 .PHONY: clean
 clean:
-	rm -r $(build_dir)
+	rm -r $(BUILD_DIR)

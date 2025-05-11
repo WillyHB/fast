@@ -6,6 +6,7 @@
 #include <X11/Xlib.h>
 #include <stdlib.h>
 #include <string.h>
+#include <unistd.h>
 #include <wchar.h>
 
 
@@ -14,7 +15,7 @@ struct Command *current;
 XftColor *white;
 XftFont *font;
 XftDraw *draw;
-char *buf;
+char buf[1024] = { 0 };
 int len;
 
 void init_output(Display* dpy, Drawable *window, int screen) {
@@ -42,15 +43,12 @@ void init_output(Display* dpy, Drawable *window, int screen) {
 
 // print current line
 void print(Display *dpy, char *s, int length) {
-    int old = len;
-    len += length;
-    char *new = realloc(buf, sizeof(char)*len);
 
     for (int i = len; i < length; i++) {
-        *(new+i) = *(s+i-len);
+        buf[i] = s[i-len];
     }
 
-    buf = new;
+    len += length;
 }
 
 // have a history data structure that is initialized on intro
@@ -62,6 +60,7 @@ void put(Display *dpy, struct Command *command) {
 }
 
 void redraw(Display *dpy) {
+    /*
     Node *search = history->head;
     int i = 0;
     while (search != NULL) {
@@ -69,11 +68,19 @@ void redraw(Display *dpy) {
         XftDrawString8(draw,white,font,10,50 + font->height*i,(FcChar8*)c->command,c->len);
         search = search->next;
         ++i;
-    }
+    }*/
 
-    if (current != NULL) {
-    XftDrawString8(draw,white,font,10,50 + font->height*i,(FcChar8*)buf,len);
-    }
+
+
+
+
+
+
+
+    // Go through every char and if there's a newline split into seperate lines in a bigger list of lines perhaps
+    // .BASH_HISTORY IN ~ TO GET HIIISTORY perhaps
+
+    XftDrawString8(draw,white,font,10,50 + font->height*0,(FcChar8*)buf,len);
 }
 
 void close_output(Display *dpy, int screen) {
