@@ -4,6 +4,7 @@
 #include <X11/Xutil.h>
 #include <fontconfig/fontconfig.h>
 #include <X11/Xlib.h>
+#include <stdlib.h>
 #include <string.h>
 #include <wchar.h>
 
@@ -13,6 +14,8 @@ struct Command *current;
 XftColor *white;
 XftFont *font;
 XftDraw *draw;
+char *buf;
+int len;
 
 void init_output(Display* dpy, Drawable *window, int screen) {
     history = init_list();
@@ -38,8 +41,16 @@ void init_output(Display* dpy, Drawable *window, int screen) {
 }
 
 // print current line
-void print(Display *dpy,struct Command *command) {
-    current = command;
+void print(Display *dpy, char *s, int length) {
+    int old = len;
+    len += length;
+    char *new = realloc(buf, sizeof(char)*len);
+
+    for (int i = len; i < length; i++) {
+        *(new+i) = *(s+i-len);
+    }
+
+    buf = new;
 }
 
 // have a history data structure that is initialized on intro
@@ -61,7 +72,7 @@ void redraw(Display *dpy) {
     }
 
     if (current != NULL) {
-    XftDrawString8(draw,white,font,10,50 + font->height*i,(FcChar8*)current->command,current->len);
+    XftDrawString8(draw,white,font,10,50 + font->height*i,(FcChar8*)buf,len);
     }
 }
 

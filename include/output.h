@@ -16,7 +16,7 @@ List* get_history();
 void put(Display*, struct Command*);
 
 // change the value of the current written command
-void print(Display*, struct Command*);
+void print(Display*, char*, int len);
 
 // redraw the screen and each line
 void redraw(Display*);

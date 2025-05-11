@@ -7,6 +7,7 @@
 #include <termios.h>
 #include <X11/keysym.h>
 #include <pty.h>
+#include <sys/select.h>
 
 #include "../include/db_linked_list.h"
 #include "../include/output.h"
@@ -29,17 +30,17 @@ typedef struct Input {
 void parse(XEvent*, Input*);
 
 int main(int argc, char *argv[]) {
-    
+
     int width = 250;
     int height = 250;
     XEvent event;
-    int ctrl = 0;
+
+    char *readbuf = malloc(sizeof(char)*2048);
+    memset(readbuf, 0, 2048);
 
 
     int amaster;
-
     int cpid = forkpty(&amaster, NULL, NULL, NULL);
-
     //stdout of child proccess, is amaster of the parent? Child process is the slave
     if (cpid == 0) {
         //stdin comes from master_fd now, stdout is to slave, so also master_fd
@@ -47,14 +48,9 @@ int main(int argc, char *argv[]) {
         char *shell = getenv("SHELL");
         char *argv[] = { shell, 0};
         execv(argv[0], argv);
-        
+
         // should never get past here
     } 
-
-    sleep(2);
-    char buf[256] = { 0 };
-    while (read(amaster, buf, 256) <= 0) {}
-    printf("RECEIVED FROM CHILD %s DONE RECEIVING\n", buf);
 
     open_config();
 
@@ -66,7 +62,7 @@ int main(int argc, char *argv[]) {
     int screen = DefaultScreen(dpy);
     GC gc = DefaultGC(dpy, screen);
     //ScreenOfDisplay(dpy, DefaultScreen(dpy))->
-        
+
     // Since from hardware to hardware colours are stored in ints, we don't know what are
     // We can only for sure get black and white
     int black = BlackPixel(dpy, screen);
@@ -81,10 +77,14 @@ int main(int argc, char *argv[]) {
     long event_mask = ExposureMask | KeyPressMask | KeyReleaseMask | StructureNotifyMask;
     XSelectInput(dpy, w, event_mask);
 
+    int x11_fd = ConnectionNumber(dpy);
+    fd_set readset;
+    int fdmax = x11_fd > amaster ? x11_fd : amaster;
+
     init_output(dpy, &w, screen);
 
     int hc = 0;
-    
+
     Input *i = malloc(sizeof(Input));
     List *list = init_list();
     Command *cur = malloc(sizeof(Command));
@@ -94,102 +94,100 @@ int main(int argc, char *argv[]) {
 
     for (;;) {
 
-        XNextEvent(dpy, &event);
+        FD_ZERO(&readset);
 
-        if (event.type == Expose) {
-            width = event.xexpose.width;
-            height = event.xexpose.height;
-        } else if (event.type == KeyPress) {
+        FD_SET(amaster, &readset);
+        FD_SET(x11_fd, &readset);
 
-            parse(&event, i);
+        int n = select(fdmax+1, &readset, NULL, NULL, NULL);
 
-            //printf("Type %d and data %d\n", i->type, i->data.ascii);
+        if (n < 0) {
+            perror("select error");
+            return 2;
+        } else if (n > 0) {
 
-            if (i->type == ASCII) {
-                write(amaster, &i->data.ascii, 1);
-                if (i->data.ascii == 13 || i->data.ascii == 10) {
-
-                    //sygtem(cur->command);
-                    put(dpy, cur);
-                    set_first(list, cur);
-                    // replace with new memory
-                    cur = malloc(sizeof(Command));
-                    cur->command = calloc(256, sizeof(char));
-                    cur->len = 0;
-
-                    // add a new element in the history
-                    add_first(list, cur);
-
-                    hc = 0;
-
-                    // command
-                    // reset line
-                    // add to history
-                    // etc
+            if (FD_ISSET(amaster, &readset)) {
+                int n = read(amaster,readbuf,2048);
+                printf("%s\n",readbuf);
+                memset(readbuf, 0, 2048);
                 
-                } else if (i->data.ascii == 21) {
-                    puts("DELETE");
+                XSetForeground(dpy, gc, black);
+                XFillRectangle(dpy, w, gc, 0, 0, width, height);
+                XSetForeground(dpy, gc, white);
+                redraw(dpy);
+            }
 
-                } else {
-                    cur->command[cur->len++] = i->data.ascii; //post increment
-                }
+            if (FD_ISSET(x11_fd, &readset)) {
+                while (XPending(dpy)) {
+                    XNextEvent(dpy, &event);
 
-            } else {
-                switch (i->data.sym) {
-                    case XK_BackSpace:
-                        if (cur->len > 0) {
-                        cur->command[--cur->len] = 0; // pre increment
-                        }
-                        break;
-                    case XK_Up: 
+                    if (event.type == Expose) {
+                        width = event.xexpose.width;
+                        height = event.xexpose.height;
+                    } else if (event.type == KeyPress) {
 
-                        /*
-                        Command *g = get(list,hc);      
-                        strcpy(cur->command, g->command);
-                        cur->len = g->len;
-                        */
+                        parse(&event, i);
 
-                        if (hc < (list->count-1) ) { hc++; }
-                        cur = get(list,hc);
-                        if (cur == NULL) { break; }
-                        break;
+                        //printf("Type %d and data %d\n", i->type, i->data.ascii);
 
-                    case XK_Down:
-                        if (hc > 0) { hc--; }
+                        if (i->type == ASCII) {
+                            write(amaster, &i->data.ascii, 1);
+                            /*
+                               if (i->data.ascii == 13 || i->data.ascii == 10) {
 
-                        cur = get(list,hc);
-                        if (cur == NULL) { break; }
-                        break;
+                            //sygtem(cur->command);
+                            put(dpy, cur);
+                            set_first(list, cur);
+                            // replace with new memory
+                            cur = malloc(sizeof(Command));
+                            cur->command = calloc(256, sizeof(char));
+                            cur->len = 0;
 
-                    case XK_Control_L:
-                    case XK_Control_R:
-                        ctrl = 1;
-                        break;
-                }
-            } 
+                            // add a new element in the history
+                            add_first(list, cur);
 
-            print(dpy, cur);
-        } else if (event.type == KeyRelease) {
+                            hc = 0;
 
-            parse(&event, i);
+                            // command
+                            // reset line
+                            // add to history
+                            // etc
 
-            if (i->type == SYM) {
-                switch (i->data.sym) {
+                            } else if (i->data.ascii == 21) {
+                            puts("DELETE");
 
-                    case XK_Control_L:
-                    case XK_Control_R:
-                        puts("hewo");
-                        ctrl = 0;
-                        break;
+                            } else {
+                            cur->command[cur->len++] = i->data.ascii; //post increment
+                            }
+                            */
+                        } else {
+                            switch (i->data.sym) {
+                                case XK_BackSpace:
+                                    if (cur->len > 0) {
+                                        cur->command[--cur->len] = 0; // pre increment
+                                    }
+                                    break;
+                                case XK_Up: 
+                                    if (hc < (list->count-1) ) { hc++; }
+                                    cur = get(list,hc);
+                                    if (cur == NULL) { break; }
+                                    break;
+
+                                case XK_Down:
+                                    if (hc > 0) { hc--; }
+                                    cur = get(list,hc);
+                                    if (cur == NULL) { break; }
+                                    break;
+                            }
+                        } 
+                    }
                 }
             }
         }
 
-        XSetForeground(dpy, gc, black);
-        XFillRectangle(dpy, w, gc, 0, 0, width, height);
-        XSetForeground(dpy, gc, white);
-        redraw(dpy);
-        
+
+
+
         //XftDrawString8(draw, green,font,10,50+list->count*font->height,(FcChar8*)cur->command,cur->len);
     }
 
@@ -208,8 +206,12 @@ void parse(XEvent *event, Input *input) {
     char *buff = calloc(32, sizeof(char));
 
     KeySym sym = XLookupKeysym(&event->xkey, 0);
-    
+
     int symbol = XLookupString(&event->xkey, buff, sizeof(buff), &sym, NULL);
+    input->type = ASCII;
+    input->data.ascii = buff[0];
+    return;
+
     if (!symbol || sym == XK_BackSpace || sym == XK_Escape) {
         input->type = SYM;
         input->data.sym = sym;
