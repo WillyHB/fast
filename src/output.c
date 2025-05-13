@@ -4,6 +4,7 @@
 #include <X11/Xutil.h>
 #include <fontconfig/fontconfig.h>
 #include <X11/Xlib.h>
+#include <inttypes.h>
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
@@ -11,23 +12,33 @@
 
 
 List *history;
-struct Command *current;
+
 XftColor *white;
 XftFont *font;
 XftDraw *draw;
-char buf[1024] = { 0 };
-int len;
+char raw_buf[4096] = { 0 };
+int raw_len = 0;
+int raw_change = 0;
+char draw_buf[4096] = { 0 };
+int draw_len = 0;
+
+int cursor_row = 0;
+int cursor_column = 0;
+int spacing;
 
 void init_output(Display* dpy, Drawable *window, int screen) {
     history = init_list();
 
+    const char *font_name;
     // Setup font stuff
-    const char *font_name = get_string("font", "text");
-    if (font_name == NULL) {
-        font_name = DEFAULT_FONT;
-    }
+    toml_datum_t t = get_config("font", "text");
+    font_name = t.type == TOML_STRING ? t.u.s : DEFAULT_FONT;
+            
+    t =  get_config("spacing", "text");
+    spacing = t.type == TOML_INT64 ? t.u.int64 : DEFAULT_SPACING;
 
     font = XftFontOpenName(dpy, screen,font_name);
+
     if (font == NULL) {
         fprintf(stderr, "Opening font failed...");
     }
@@ -41,14 +52,45 @@ void init_output(Display* dpy, Drawable *window, int screen) {
     white = get_color(255, 255, 255, 255, dpy, &screen);
 }
 
+void parse(char *s, int length) {
+
+    if (length < 0 || s == NULL) {
+        fprintf(stderr, "Invalid string returned from shell");
+        return;
+    }
+
+    raw_change = 1;
+    for (int i = 0; i < length; i++) {
+        raw_buf[raw_len+i] = s[i];
+    }
+
+    // put at end to not mess up for loop above
+    raw_len += length;
+}
+
+void prepare_draw() {
+
+    raw_change = 0;
+    memset(draw_buf, 0, 4096);
+
+    for (int i = 0; i < raw_len; i++) {
+        if ((raw_buf[i] == 27 && raw_buf[i+1] == '[')\
+            || raw_buf[i] == '\\') {
+            //escape
+
+            continue;
+        } 
+
+
+        // parse
+
+    }
+
+}
+
 // print current line
 void print(Display *dpy, char *s, int length) {
 
-    for (int i = len; i < length; i++) {
-        buf[i] = s[i-len];
-    }
-
-    len += length;
 }
 
 // have a history data structure that is initialized on intro
@@ -60,27 +102,9 @@ void put(Display *dpy, struct Command *command) {
 }
 
 void redraw(Display *dpy) {
-    /*
-    Node *search = history->head;
-    int i = 0;
-    while (search != NULL) {
-        struct Command *c = (Command*)search->data;
-        XftDrawString8(draw,white,font,10,50 + font->height*i,(FcChar8*)c->command,c->len);
-        search = search->next;
-        ++i;
-    }*/
-
-
-
-
-
-
-
-
-    // Go through every char and if there's a newline split into seperate lines in a bigger list of lines perhaps
-    // .BASH_HISTORY IN ~ TO GET HIIISTORY perhaps
-
-    XftDrawString8(draw,white,font,10,50 + font->height*0,(FcChar8*)buf,len);
+    for (int i = 0; i < raw_len; i++) {
+        XftDrawString8(draw,white,font,10+i*spacing,50+font->height,(FcChar8*)(raw_buf+i),1);
+    }
 }
 
 void close_output(Display *dpy, int screen) {

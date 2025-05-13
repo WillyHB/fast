@@ -38,46 +38,6 @@ toml_datum_t get_value(char *key, char *table) {
     }
 }
 
-int get_bool(char *key, char *table) {
-    toml_datum_t value = get_value(key,table);
-    
-    if (value.type != TOML_BOOLEAN) {
-        fprintf(stderr, "Incorrect value for loading config\n");
-        return 0;
-    }
-
-    return value.u.boolean;
-}
-
-float get_float(char *key, char *table) {
-    toml_datum_t value = get_value(key,table);
-    
-    if (value.type != TOML_FP64) {
-        fprintf(stderr, "Incorrect value for loading config\n");
-        return 0;
-    }
-
-    return value.u.boolean;
-}
-
-const char *get_string(char *key, char *table) {
-    toml_datum_t value = get_value(key, table);
-    
-    if (value.type != TOML_STRING) {
-        fprintf(stderr, "Incorrect value for loading config\n");
-        return 0;
-    }
-
-    return value.u.s;
-}
-
-int get_int(char *key, char *table) {
-    toml_datum_t value = get_value(key,table);
-    
-    if (value.type != TOML_INT64) {
-        fprintf(stderr, "Incorrect value for loading config\n");
-        return 0;
-    }
-
-    return value.u.int64;
+ toml_datum_t get_config(char *key, char *table) {
+    return get_value(key, table);
 }

@@ -27,7 +27,7 @@ typedef struct Input {
     } data;
 } Input;
 
-char parse(XEvent*);
+char parse_input(XEvent*);
 
 int main(int argc, char *argv[]) {
 
@@ -108,7 +108,8 @@ int main(int argc, char *argv[]) {
                 int n = read(amaster,readbuf,2048);
 
                 write(STDOUT_FILENO, readbuf, n);
-                print(dpy, readbuf, n);
+                parse(readbuf, n);
+                //print(dpy, readbuf, n);
                 memset(readbuf, 0, 2048);
                 
                 XSetForeground(dpy, gc, black);
@@ -126,7 +127,7 @@ int main(int argc, char *argv[]) {
                         height = event.xexpose.height;
                     } else if (event.type == KeyPress) {
 
-                        char c = parse(&event);
+                        char c = parse_input(&event);
 
                         write(amaster, &c, 1);
                             /*
@@ -182,18 +183,12 @@ int main(int argc, char *argv[]) {
             }
         }
 
-
-
-
-
-        //XftDrawString8(draw, green,font,10,50+list->count*font->height,(FcChar8*)cur->command,cur->len);
-
     close_config();
     close_output(dpy, screen);
 }
 
 // Need to be able to return a union perhaps of char or KeySym like and a boolean or enum to see if it's printable or not
-char parse(XEvent *event) {
+char parse_input(XEvent *event) {
     if (event == NULL) {
         fprintf(stderr, "Can't pass null pointers to parse");
         return 0;

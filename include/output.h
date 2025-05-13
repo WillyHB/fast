@@ -15,6 +15,8 @@ List* get_history();
 // push a command into the history of the terminal
 void put(Display*, struct Command*);
 
+void parse(char*,int);
+
 // change the value of the current written command
 void print(Display*, char*, int len);
 
