@@ -1,6 +1,6 @@
 #Font pattern : family-size:options
 [text]
-font = "Mono-12" 
-spacing = 20
+font = "Mono-9" 
+spacing = 15
 
 
