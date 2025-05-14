@@ -70,7 +70,7 @@ void init_output(Display* dpy, Drawable *window, int screen) {
 
     regular = XftFontOpenName(dpy, screen,font_name);
 
-    if (regular == NULL) {
+    if (font == NULL) {
         fprintf(stderr, "Opening font failed...");
     }
 
@@ -85,6 +85,37 @@ void init_output(Display* dpy, Drawable *window, int screen) {
 
 // Modifies and removes substring from inputted string
 // start inclusive
+void remove_substring(char *s, int len, int start, int n) {
+    // All bad cases
+    if (start < 0 || n <= 0 || start+n >= len || s == NULL) {
+        return;
+    }
+
+    // new size is length minus size of removed substring
+    int new_size = len - n;
+    int end = start+n;
+    int index;
+
+    char *new = malloc(sizeof(char)*new_size);
+
+    for (int i = 0; i < start; i++) {
+        new[index] = s[i];
+        ++index;
+    }
+
+    for (int i = end+1; i < len; i++) {
+        new[index] = s[i];
+        ++index;
+    }
+
+    if (index != new_size-1) {
+        fprintf(stderr, "Substring removal error");
+    }
+
+    strcpy(s,new);
+    free(new);
+}
+
 void parse(char *s, int length) {
 
     if (length < 0 || s == NULL) {
@@ -133,7 +164,6 @@ int handle_escape(int i) {
             break;
 
         case 'm':
-
             break;
 
         case 'K':
@@ -230,6 +260,14 @@ void prepare_draw() {
     }
 }
 
+// have a history data structure that is initialized on intro
+void put(Display *dpy, struct Command *command) {
+    struct Command *c = malloc(sizeof(struct Command));
+    c->command = strdup(command->command);
+    c->len = command->len;
+    add_last(history, c);
+}
+
 void redraw(Display *dpy) {
     // Cache draw buffer unless new output is being written
     if (raw_change) {
@@ -258,35 +296,3 @@ XftColor *get_color(unsigned char r, unsigned char g, unsigned char b, unsigned 
     XftColorAllocValue(dpy, DefaultVisual(dpy, *screen), DefaultColormap(dpy, *screen), &xcolor, color);
     return color;
 }
-
-void remove_substring(char *s, int len, int start, int n) {
-    // All bad cases
-    if (start < 0 || n <= 0 || start+n >= len || s == NULL) {
-        return;
-    }
-
-    // new size is length minus size of removed substring
-    int new_size = len - n;
-    int end = start+n;
-    int index;
-
-    char *new = malloc(sizeof(char)*new_size);
-
-    for (int i = 0; i < start; i++) {
-        new[index] = s[i];
-        ++index;
-    }
-
-    for (int i = end+1; i < len; i++) {
-        new[index] = s[i];
-        ++index;
-    }
-
-    if (index != new_size-1) {
-        fprintf(stderr, "Substring removal error");
-    }
-
-    strcpy(s,new);
-    free(new);
-}
-
