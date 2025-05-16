@@ -1,5 +1,5 @@
 #Font pattern : family-size:options
 [text]
-font = "NotoSansMono-9:Bold:Italic" 
+font = "NotoSansMono-9" 
 spacing = 15
 

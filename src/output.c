@@ -12,34 +12,34 @@
 #include <ctype.h>
 #include <stdbool.h>
 
-
 #define MAX_WIDTH 80
 #define MAX_HEIGHT 80
 List *history;
 
 typedef struct {
-    char c;
     struct {
-        char r;
-        char g;
-        char b;
-        char a;
+        unsigned char r;
+        unsigned char g;
+        unsigned char b;
+        unsigned char a;
 
     } colour;
 
     _Bool bold;
-    _Bool italics;
+    _Bool light;
+    _Bool italic;
     _Bool strike;
-    _Bool underline;
+    _Bool rapid_blink;
+    _Bool slow_blink;
+    _Bool hidden;
+    _Bool d_underline;
+    _Bool s_underline;
 
-} print_char;
+} Attributes;
 
 XftColor *white;
 
 XftFont *regular;
-XftFont *bold;
-XftFont *italic;
-XftFont *strike;
 
 XftDraw *draw;
 char raw_buf[4096] = { 0 };
@@ -47,6 +47,7 @@ int raw_len = 0;
 int raw_change = 0;
 // So it is an array of 80 of arrays of 80, where the second is the outer
 char draw_buf[80][80] = { 0 };
+Attributes* attr_buf[80][80];
 int draw_len = 0;
 
 // max column and row hmm
@@ -81,6 +82,8 @@ void init_output(Display* dpy, Drawable *window, int screen) {
     }
 
     white = get_color(255, 255, 255, 255, dpy, &screen);
+
+    memset(attr_buf, 0, 80*80);
 }
 
 // Modifies and removes substring from inputted string
@@ -102,11 +105,21 @@ void parse(char *s, int length) {
 }
 
 int handle_escape(int i) {
+
+    Attributes *current = attr_buf[cursor_row][cursor_column];
+
+    if (current == NULL) {
+        // gets the address of an area of memory with size of attributes
+        current = malloc(sizeof(Attributes));
+        // set the address of attr_buf[..][..] = address of malloced area
+        attr_buf[cursor_row][cursor_column] = current;
+    }  
+
     char esc[32];
     int len = 0;
 
     // So we check until the previously added character was an alpha numeric, i.e the escape sequence ended
-    while (!isalpha(raw_buf[i-1])) {
+    while (!isalpha(raw_buf[i])) {
         esc[len] = raw_buf[i];
         len++;
         i++;
@@ -114,11 +127,11 @@ int handle_escape(int i) {
 
     esc[len] = 0;
     
-    switch (esc[len-1]) {
+    switch (raw_buf[i]) {
         case 'h':
         case 'l':
 
-            return len-1;
+            return len;
             break;
         case 'A':
 
@@ -133,7 +146,161 @@ int handle_escape(int i) {
             break;
 
         case 'm':
+#warning remember to check for nulls
+            char *s = strtok((esc+2), ";");
+            if (s == NULL) {
+                break;
+            }
 
+            int arg = atoi(s);
+
+            while (1) {
+            switch (arg) {
+                case 0: // Reset
+                current->bold = 0;
+                current->colour.r = 255;
+                current->colour.g = 255;
+                current->colour.b = 255;
+                current->colour.a = 255;
+                current->italic = 0;
+                current->rapid_blink = 0;
+                current->slow_blink = 0;
+                current->strike = 0;
+                current->s_underline = 0;
+                current->d_underline = 0;
+                current->light = 0;
+                current->hidden = 0;
+                break;
+
+                case 1: // Bold
+                current->bold = 1;
+                break;
+
+                case 2: // Faint / Light
+                current->light = 1;
+                break;
+
+                case 3: // Italic
+                current->italic = 1;
+                break;
+
+                case 4: // Underline
+                current->s_underline = 1;
+                break;
+
+                case 5: // Slow blink
+                current->slow_blink = 1; 
+                break;
+
+                case 6: // Fast blink
+                current->rapid_blink = 1;
+                break;
+
+                case 7: // Inverse foreground/background colours
+                
+                break;
+
+                case 8: // Hide
+                current->colour.a = 0; // yeah?
+                current->hidden = 1;
+
+                break;
+
+                case 9: // Strikethrough
+                current->strike = 1;
+                break;
+
+                case 21: // Double underline
+                current->d_underline = 1;
+                break;
+
+                case 22: // Cancel bold & light
+                current->light = 0;
+                current->bold = 0;
+                break;
+
+                case 23: // Not italic
+                current->italic = 0;
+                break;
+
+                case 24: // Not underlined
+                current->s_underline = 0;
+                current->d_underline = 0;
+                break;
+
+                case 25: // Not blinking
+                current->rapid_blink = 0;
+                current->slow_blink = 0;
+                break;
+
+                case 27: // Not reversed
+
+                break;
+
+                case 28: // Not hidden
+                current->hidden = 0;
+                current->colour.a = 255;
+                break;
+
+                case 29: // No strike
+                current->strike = 0;
+                break;
+
+                case 30 ... 37:
+                current->colour.r = 255;
+                current->colour.g = 0;
+                current->colour.b = 0;
+                current->colour.a = 255;
+
+                break;
+                
+                case 38: // fg colour
+                s = strtok(NULL, ";");
+                if (s == NULL) { break; }
+
+                int arg2 = atoi(s);
+
+                if (arg2 == 5) {
+                    s = strtok(NULL, ";");
+                    if (s == NULL) { break; }
+
+                    int colour_n = atoi(s);
+
+                } else if (arg2 == 2) {
+                    current->colour.r = atoi(strtok(NULL, ";"));
+                    current->colour.g = atoi(strtok(NULL, ";"));
+                    current->colour.b = atoi(strtok(NULL, ";"));
+                }
+
+                break;
+
+                case 39: // default fg colour
+                    current->colour.r = 255;
+                    current->colour.g = 255;
+                    current->colour.b = 255;
+                    current->colour.a = 255;
+
+                break;
+
+                case 48: // bg colour
+
+                break;
+
+                case 49: // default bg colour
+                    current->colour.r = 0;
+                    current->colour.g = 0;
+                    current->colour.b = 0;
+                    current->colour.a = 255;
+                break;
+            }
+            char *s = strtok(NULL, ";");
+            if (s == NULL) {
+                break;
+            }
+            arg = atoi(s);
+            } 
+
+            return len;
             break;
 
         case 'K':
@@ -153,7 +320,7 @@ int handle_escape(int i) {
                draw_buf[cursor_row][cursor_column] = 0;
            }
 
-            return len-1;
+           return len;
             break;
 
     }
@@ -171,7 +338,6 @@ void prepare_draw() {
 
     // We need a way to like... go column and row. We need to know how many rows possible?
     for (int i = 0; i < raw_len; i++) {
-
         switch (raw_buf[i]) {
 
             case 7:
@@ -217,7 +383,7 @@ void prepare_draw() {
                 break;
 
             default:
-                (draw_buf[cursor_row])[cursor_column] = raw_buf[i];
+                draw_buf[cursor_row][cursor_column] = raw_buf[i];
                 cursor_column++;
                 if (cursor_column > MAX_WIDTH) {
                     cursor_column = 0;
@@ -236,9 +402,18 @@ void redraw(Display *dpy) {
         prepare_draw();
     }
 
+    XftColor *col = white;
+    Attributes *attr = NULL;
+
     for (int i = 0; i < MAX_WIDTH; i++) {
         for (int j = 0; j < MAX_HEIGHT; j++) {
-            XftDrawString8(draw,white,regular,10+i*spacing,50+regular->height*j,(FcChar8*)(*(draw_buf+j)+i),1);
+
+            if (attr_buf[j][i] != NULL) {
+                Attributes *attr = attr_buf[j][i];
+                col = get_color(attr->colour.r, attr->colour.g, attr->colour.b, attr->colour.a, dpy, &DefaultScreen(dpy));
+            }
+
+            XftDrawString8(draw,col,regular,10+i*spacing,50+regular->height*j,(FcChar8*)(*(draw_buf+j)+i),1);
         }
     }
 }
