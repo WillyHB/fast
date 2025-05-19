@@ -39,7 +39,7 @@ typedef struct {
 
 } Attributes;
 
-void color(Color *c, unsigned char r, unsigned char g, unsigned char b, unsigned char a) {
+void GetColor(Color *c, unsigned char r, unsigned char g, unsigned char b, unsigned char a) {
     // When you create a local variable, it's on the function's stack. Which disappears even if you return?? Like yeah you got the memory, but segfault get out of here
     c->r = r;
     c->g = g;
@@ -47,14 +47,14 @@ void color(Color *c, unsigned char r, unsigned char g, unsigned char b, unsigned
     c->a = a;
 }
 
-void init_attr(Attributes *attr) {
+void InitAttr(Attributes *attr) {
     memset(attr, 0, sizeof(Attributes));
-    color(&attr->color, 255,255,255,255);
+    GetColor(&attr->color, 255,255,255,255);
 }
 
-Attributes* create_attr() {
+Attributes* CreateAttr() {
     Attributes *attr = malloc(sizeof(Attributes));
-    init_attr(attr);
+    InitAttr(attr);
 
 }
 
@@ -73,7 +73,7 @@ int cursor_row = 0;
 int cursor_column = 0;
 int spacing;
 
-void init_output(Display* dpy, Drawable *window, int screen) {
+void InitOutput(Display* dpy, const Drawable *window, int screen) {
     history = init_list();
 
     const char *font_name;
@@ -82,7 +82,7 @@ void init_output(Display* dpy, Drawable *window, int screen) {
     font_name = t.type == TOML_STRING ? t.u.s : DEFAULT_FONT;
             
     t =  get_config("spacing", "text");
-    spacing = t.type == TOML_INT64 ? t.u.int64 : DEFAULT_SPACING;
+    spacing = t.type == TOML_INT64 ? (int)t.u.int64 : DEFAULT_SPACING;
 
     regular = XftFontOpenName(dpy, screen,font_name);
 
@@ -99,7 +99,7 @@ void init_output(Display* dpy, Drawable *window, int screen) {
 
 // Modifies and removes substring from inputted string
 // start inclusive
-void parse(char *s, int length) {
+void Parse(const char *s, int length) {
 
     if (length < 0 || s == NULL) {
         fprintf(stderr, "Invalid string returned from shell");
@@ -116,36 +116,18 @@ void parse(char *s, int length) {
     raw_len += length;
 }
 
-int handle_escape(int i) {
+int HandleEscape(int raw_index) {
 
     Attributes *current = attr_buf[cursor_row][cursor_column];
 
     if (current == NULL) {
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-        current.color is NIL?
-
-
+#warning current.color is NIL?
+        
 
         // gets the address of an area of memory with size of attributes
         // calloc initialises to zero
-        current = create_attr();
+        current = CreateAttr();
         // set the address of attr_buf[..][..] = address of malloced area
         attr_buf[cursor_row][cursor_column] = current;
     }  
@@ -154,15 +136,15 @@ int handle_escape(int i) {
     int len = 0;
 
     // So we check until the previously added character was an alpha numeric, i.e the escape sequence ended
-    while (!isalpha(raw_buf[i])) {
-        esc[len] = raw_buf[i];
+    while (!isalpha(raw_buf[raw_index])) {
+        esc[len] = raw_buf[raw_index];
         len++;
-        i++;
+        raw_index++;
     }
 
     esc[len] = 0;
     
-    switch (raw_buf[i]) {
+    switch (raw_buf[raw_index]) {
         case 'h':
         case 'l':
 
@@ -192,7 +174,7 @@ int handle_escape(int i) {
             while (1) {
             switch (arg) {
                 case 0: // Reset
-                init_attr(current);
+                InitAttr(current);
                 break;
 
                 case 1: // Bold
@@ -270,7 +252,7 @@ int handle_escape(int i) {
                 break;
 
                 case 30 ... 37:
-                color(&current->color,255,0,0,255);
+                CreateColor(&current->color,255,0,0,255);
                 break;
                 
                 case 38: // fg colour
@@ -295,7 +277,7 @@ int handle_escape(int i) {
                 break;
 
                 case 39: // default fg colour
-                    color(&current->color,255,255,255,255);
+                    GetColor(&current->color,255,255,255,255);
 
                 break;
 
@@ -304,10 +286,11 @@ int handle_escape(int i) {
                 break;
 
                 case 49: // default bg colour
-                    color(&current->color,0,0,0,255);
+                    GetColor(&current->color,0,0,0,255);
                 break;
             }
-            char *s = strtok(NULL, ";");
+
+            s = strtok(NULL, ";");
             if (s == NULL) {
                 break;
             }
@@ -342,13 +325,13 @@ int handle_escape(int i) {
     return 0;
 }
 
-void prepare_draw() {
+void PrepareDraw() {
 
     cursor_row = 0;
     cursor_column = 0;
 
     raw_change = 0;
-    memset(draw_buf, 0, 80*80);
+    memset(draw_buf, 0, (unsigned long)MAX_HEIGHT*MAX_WIDTH);
 
     // We need a way to like... go column and row. We need to know how many rows possible?
     for (int i = 0; i < raw_len; i++) {
@@ -386,7 +369,7 @@ void prepare_draw() {
                 // THEN CSI CONTROL SEQUENCE INTRODUCER
                 if (raw_buf[i+1] == '[') {
                     // Undefined behaviour if nothing is returned
-                    int skip = handle_escape(i);
+                    int skip = HandleEscape(i);
                     i += skip;
                 }
 
@@ -410,14 +393,14 @@ void prepare_draw() {
     }
 }
 
-void redraw(Display *dpy) {
+void Redraw(Display *dpy) {
     // Cache draw buffer unless new output is being written
     if (raw_change) {
-        prepare_draw();
+        PrepareDraw();
     }
 
     Attributes *attr;
-    XftColor *col = get_color(255, 255, 255, 255, dpy, &DefaultScreen(dpy));
+    XftColor *col = GetXftColor(255, 255, 255, 255, dpy, &DefaultScreen(dpy));
 
     for (int i = 0; i < MAX_HEIGHT; i++) {
         for (int j = 0; j < MAX_WIDTH; j++) {
@@ -429,7 +412,7 @@ void redraw(Display *dpy) {
                 printf("%p\n", (void*)&attr->color);
                 //attr->color
 
-                col = get_color(attr->color.r, attr->color.g, attr->color.b, attr->color.a, dpy, &DefaultScreen(dpy));
+                col = GetXftColor(attr->color.r, attr->color.g, attr->color.b, attr->color.a, dpy, &DefaultScreen(dpy));
             }
 
             XftDrawString8(draw,col,regular,10+j*spacing,50+regular->height*i,(FcChar8*)(*(draw_buf+i)+j),1);
@@ -437,26 +420,26 @@ void redraw(Display *dpy) {
     }
 }
 
-void close_output(Display *dpy, int screen) {
+void CloseOutput(Display *dpy, int screen) {
     XftDrawDestroy(draw);
     //XftColorFree(dpy, DefaultVisual(dpy,screen), DefaultColormap(dpy,screen), white);
 }
 
-XftColor *get_color(unsigned char r, unsigned char g, unsigned char b, unsigned char a, Display *dpy, int *screen) {
+XftColor *GetXftColor(unsigned char r, unsigned char g, unsigned char b, unsigned char a, Display *dpy, int *screen) {
     XftColor *color = malloc(sizeof(XftColor));
-    short red = (short)((r / (float)255) * 65535);
-    short green = (short)((g / (float)255) * 65535);
-    short blue = (short)((b / (float)255) * 65535);
-    short alpha = (short)((a / (float)255) * 65535);
+    short red = (short)(((float)r / (float)255) * 65535);
+    short green = (short)(((float)g / (float)255) * 65535);
+    short blue = (short)(((float)b / (float)255) * 65535);
+    short alpha = (short)(((float)a / (float)255) * 65535);
     const XRenderColor xcolor = { .red = red, .alpha = alpha, .green = green, .blue = blue };
 
     XftColorAllocValue(dpy, DefaultVisual(dpy, *screen), DefaultColormap(dpy, *screen), &xcolor, color);
     return color;
 }
 
-void remove_substring(char *s, int len, int start, int n) {
+void RemoveSubstring(char *string, int len, int start, int n) {
     // All bad cases
-    if (start < 0 || n <= 0 || start+n >= len || s == NULL) {
+    if (start < 0 || n <= 0 || start+n >= len || string == NULL) {
         return;
     }
 
@@ -468,12 +451,12 @@ void remove_substring(char *s, int len, int start, int n) {
     char *new = malloc(sizeof(char)*new_size);
 
     for (int i = 0; i < start; i++) {
-        new[index] = s[i];
+        new[index] = string[i];
         ++index;
     }
 
     for (int i = end+1; i < len; i++) {
-        new[index] = s[i];
+        new[index] = string[i];
         ++index;
     }
 
@@ -481,7 +464,7 @@ void remove_substring(char *s, int len, int start, int n) {
         fprintf(stderr, "Substring removal error");
     }
 
-    strcpy(s,new);
+    strcpy(string,new);
     free(new);
 }
 
