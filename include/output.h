@@ -9,14 +9,14 @@ typedef struct Command {
     int len;
 } Command;
 
-void InitOutput(Display *dpy, Drawable *window, int screen);
-void CloseOutput(Display*, int);
+void init_output(Display *dpy, const Drawable *window, int screen);
+void close_output(Display*, int);
 
-void Parse(char*,int);
+void parse(const char*,int);
 
 // redraw the screen and each line
-void Redraw(Display*);
-XftColor *GetXftColor(unsigned char r, unsigned char g, unsigned char b, unsigned char a, Display *dpy, int *screen);
-void RemoveSubstring(char *s, int len, int start, int n);
+void redraw(Display*);
+XftColor *get_xft_color(unsigned char r, unsigned char g, unsigned char b, unsigned char a, Display *dpy, int *screen);
+void remove_substring(char *s, int len, int start, int n);
 
 #endif

@@ -39,7 +39,7 @@ typedef struct {
 
 } Attributes;
 
-void GetColor(Color *c, unsigned char r, unsigned char g, unsigned char b, unsigned char a) {
+void get_color(Color *c, unsigned char r, unsigned char g, unsigned char b, unsigned char a) {
     // When you create a local variable, it's on the function's stack. Which disappears even if you return?? Like yeah you got the memory, but segfault get out of here
     c->r = r;
     c->g = g;
@@ -47,14 +47,14 @@ void GetColor(Color *c, unsigned char r, unsigned char g, unsigned char b, unsig
     c->a = a;
 }
 
-void InitAttr(Attributes *attr) {
+void init_attr(Attributes *attr) {
     memset(attr, 0, sizeof(Attributes));
-    GetColor(&attr->color, 255,255,255,255);
+    get_color(&attr->color, 255,255,255,255);
 }
 
-Attributes* CreateAttr() {
+Attributes* create_attr() {
     Attributes *attr = malloc(sizeof(Attributes));
-    InitAttr(attr);
+    init_attr(attr);
 
 }
 
@@ -73,16 +73,16 @@ int cursor_row = 0;
 int cursor_column = 0;
 int spacing;
 
-void InitOutput(Display* dpy, const Drawable *window, int screen) {
+void init_output(Display* dpy, const Drawable *window, int screen) {
     history = init_list();
 
     const char *font_name;
     // Setup font stuff
-    toml_datum_t t = get_config("font", "text");
-    font_name = t.type == TOML_STRING ? t.u.s : DEFAULT_FONT;
+    toml_datum_t tab = get_config("font", "text");
+    font_name = tab.type == TOML_STRING ? tab.u.s : DEFAULT_FONT;
             
-    t =  get_config("spacing", "text");
-    spacing = t.type == TOML_INT64 ? (int)t.u.int64 : DEFAULT_SPACING;
+    tab =  get_config("spacing", "text");
+    spacing = tab.type == TOML_INT64 ? (int)tab.u.int64 : DEFAULT_SPACING;
 
     regular = XftFontOpenName(dpy, screen,font_name);
 
@@ -97,43 +97,41 @@ void InitOutput(Display* dpy, const Drawable *window, int screen) {
     }
 }
 
-// Modifies and removes substring from inputted string
-// start inclusive
-void Parse(const char *s, int length) {
+void parse(const char *str, int length) {
 
-    if (length < 0 || s == NULL) {
+    if (length < 0 || str == NULL) {
         fprintf(stderr, "Invalid string returned from shell");
         return;
     }
 
-
     raw_change = 1;
     for (int i = 0; i < length; i++) {
-        raw_buf[raw_len+i] = s[i];
+        raw_buf[raw_len+i] = str[i];
     }
 
     // put at end to not mess up for loop above
     raw_len += length;
 }
 
-int HandleEscape(int raw_index) {
+int handle_escape(int raw_index) {
 
     Attributes *current = attr_buf[cursor_row][cursor_column];
 
     if (current == NULL) {
 
-#warning current.color is NIL?
+    #warning current.color is NIL?
         
-
         // gets the address of an area of memory with size of attributes
         // calloc initialises to zero
-        current = CreateAttr();
+        current = create_attr();
+        printf("pen %p\n", (void*)&current->color);
         // set the address of attr_buf[..][..] = address of malloced area
         attr_buf[cursor_row][cursor_column] = current;
     }  
 
     char esc[32];
     int len = 0;
+    char *str;
 
     // So we check until the previously added character was an alpha numeric, i.e the escape sequence ended
     while (!isalpha(raw_buf[raw_index])) {
@@ -164,17 +162,17 @@ int HandleEscape(int raw_index) {
 
         case 'm':
 
-            char *s = strtok((esc+2), ";");
-            if (s == NULL) {
+            str = strtok((esc+2), ";");
+            if (str == NULL) {
                 break;
             }
 
-            int arg = atoi(s);
+            int arg = atoi(str);
 
             while (1) {
             switch (arg) {
                 case 0: // Reset
-                InitAttr(current);
+                init_attr(current);
                 break;
 
                 case 1: // Bold
@@ -252,20 +250,20 @@ int HandleEscape(int raw_index) {
                 break;
 
                 case 30 ... 37:
-                CreateColor(&current->color,255,0,0,255);
+                get_color(&current->color,255,0,0,255);
                 break;
                 
                 case 38: // fg colour
-                s = strtok(NULL, ";");
-                if (s == NULL) { break; }
+                str = strtok(NULL, ";");
+                if (str == NULL) { break; }
 
-                int arg2 = atoi(s);
+                int arg2 = atoi(str);
 
                 if (arg2 == 5) {
-                    s = strtok(NULL, ";");
-                    if (s == NULL) { break; }
+                    str = strtok(NULL, ";");
+                    if (str == NULL) { break; }
 
-                    int colour_n = atoi(s);
+                    int colour_n = atoi(str);
 
                 } else if (arg2 == 2) {
                     current->color.r = atoi(strtok(NULL, ";"));
@@ -277,7 +275,7 @@ int HandleEscape(int raw_index) {
                 break;
 
                 case 39: // default fg colour
-                    GetColor(&current->color,255,255,255,255);
+                    get_color(&current->color,255,255,255,255);
 
                 break;
 
@@ -286,15 +284,15 @@ int HandleEscape(int raw_index) {
                 break;
 
                 case 49: // default bg colour
-                    GetColor(&current->color,0,0,0,255);
+                    get_color(&current->color,0,0,0,255);
                 break;
             }
 
-            s = strtok(NULL, ";");
-            if (s == NULL) {
+            str = strtok(NULL, ";");
+            if (str == NULL) {
                 break;
             }
-            arg = atoi(s);
+            arg = atoi(str);
             } 
 
             return len;
@@ -325,7 +323,7 @@ int HandleEscape(int raw_index) {
     return 0;
 }
 
-void PrepareDraw() {
+void prepare_draw() {
 
     cursor_row = 0;
     cursor_column = 0;
@@ -369,7 +367,7 @@ void PrepareDraw() {
                 // THEN CSI CONTROL SEQUENCE INTRODUCER
                 if (raw_buf[i+1] == '[') {
                     // Undefined behaviour if nothing is returned
-                    int skip = HandleEscape(i);
+                    int skip = handle_escape(i);
                     i += skip;
                 }
 
@@ -393,39 +391,37 @@ void PrepareDraw() {
     }
 }
 
-void Redraw(Display *dpy) {
+void redraw(Display *dpy) {
     // Cache draw buffer unless new output is being written
     if (raw_change) {
-        PrepareDraw();
+        prepare_draw();
     }
 
     Attributes *attr;
-    XftColor *col = GetXftColor(255, 255, 255, 255, dpy, &DefaultScreen(dpy));
+    XftColor *col = get_xft_color(255, 255, 255, 255, dpy, &DefaultScreen(dpy));
 
     for (int i = 0; i < MAX_HEIGHT; i++) {
         for (int j = 0; j < MAX_WIDTH; j++) {
 
             if (attr_buf[j][i] != NULL) {
-                Attributes *attr = attr_buf[i][j];
+                Attributes *attr = attr_buf[j][i];
 
-                printf("Iws it here?\n");
-                printf("%p\n", (void*)&attr->color);
                 //attr->color
 
-                col = GetXftColor(attr->color.r, attr->color.g, attr->color.b, attr->color.a, dpy, &DefaultScreen(dpy));
+                col = get_xft_color(attr->color.r, attr->color.g, attr->color.b, attr->color.a, dpy, &DefaultScreen(dpy));
             }
 
-            XftDrawString8(draw,col,regular,10+j*spacing,50+regular->height*i,(FcChar8*)(*(draw_buf+i)+j),1);
+            XftDrawString8(draw,col,regular,10+(j*spacing),50+(regular->height*i),(FcChar8*)(*(draw_buf+i)+j),1);
         }
     }
 }
 
-void CloseOutput(Display *dpy, int screen) {
+void close_display(Display *dpy, int screen) {
     XftDrawDestroy(draw);
     //XftColorFree(dpy, DefaultVisual(dpy,screen), DefaultColormap(dpy,screen), white);
 }
 
-XftColor *GetXftColor(unsigned char r, unsigned char g, unsigned char b, unsigned char a, Display *dpy, int *screen) {
+XftColor *get_xft_color(unsigned char r, unsigned char g, unsigned char b, unsigned char a, Display *dpy, int *screen) {
     XftColor *color = malloc(sizeof(XftColor));
     short red = (short)(((float)r / (float)255) * 65535);
     short green = (short)(((float)g / (float)255) * 65535);
@@ -437,7 +433,7 @@ XftColor *GetXftColor(unsigned char r, unsigned char g, unsigned char b, unsigne
     return color;
 }
 
-void RemoveSubstring(char *string, int len, int start, int n) {
+void remove_substring(char *string, int len, int start, int n) {
     // All bad cases
     if (start < 0 || n <= 0 || start+n >= len || string == NULL) {
         return;

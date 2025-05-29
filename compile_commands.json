@@ -1,0 +1,86 @@
+[
+  {
+    "arguments": [
+      "/usr/bin/gcc",
+      "-c",
+      "-I/usr/include/freetype2",
+      "-I/usr/include/X11/Xft",
+      "-o",
+      "build/./src/tomlc17.c.o",
+      "src/tomlc17.c"
+    ],
+    "directory": "/home/willy/projects/fast",
+    "file": "/home/willy/projects/fast/src/tomlc17.c",
+    "output": "/home/willy/projects/fast/build/src/tomlc17.c.o"
+  },
+  {
+    "arguments": [
+      "/usr/bin/gcc",
+      "-c",
+      "-I/usr/include/freetype2",
+      "-I/usr/include/X11/Xft",
+      "-o",
+      "build/./src/stack.c.o",
+      "src/stack.c"
+    ],
+    "directory": "/home/willy/projects/fast",
+    "file": "/home/willy/projects/fast/src/stack.c",
+    "output": "/home/willy/projects/fast/build/src/stack.c.o"
+  },
+  {
+    "arguments": [
+      "/usr/bin/gcc",
+      "-c",
+      "-I/usr/include/freetype2",
+      "-I/usr/include/X11/Xft",
+      "-o",
+      "build/./src/main.c.o",
+      "src/main.c"
+    ],
+    "directory": "/home/willy/projects/fast",
+    "file": "/home/willy/projects/fast/src/main.c",
+    "output": "/home/willy/projects/fast/build/src/main.c.o"
+  },
+  {
+    "arguments": [
+      "/usr/bin/gcc",
+      "-c",
+      "-I/usr/include/freetype2",
+      "-I/usr/include/X11/Xft",
+      "-o",
+      "build/./src/output.c.o",
+      "src/output.c"
+    ],
+    "directory": "/home/willy/projects/fast",
+    "file": "/home/willy/projects/fast/src/output.c",
+    "output": "/home/willy/projects/fast/build/src/output.c.o"
+  },
+  {
+    "arguments": [
+      "/usr/bin/gcc",
+      "-c",
+      "-I/usr/include/freetype2",
+      "-I/usr/include/X11/Xft",
+      "-o",
+      "build/./src/settings.c.o",
+      "src/settings.c"
+    ],
+    "directory": "/home/willy/projects/fast",
+    "file": "/home/willy/projects/fast/src/settings.c",
+    "output": "/home/willy/projects/fast/build/src/settings.c.o"
+  },
+  {
+    "arguments": [
+      "/usr/bin/gcc",
+      "-c",
+      "-I/usr/include/freetype2",
+      "-I/usr/include/X11/Xft",
+      "-o",
+      "build/./src/db_linked_list.c.o",
+      "src/db_linked_list.c"
+    ],
+    "directory": "/home/willy/projects/fast",
+    "file": "/home/willy/projects/fast/src/db_linked_list.c",
+    "output": "/home/willy/projects/fast/build/src/db_linked_list.c.o"
+  }
+]
