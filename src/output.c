@@ -107,6 +107,48 @@ void parse(const char *str, int length) {
 	raw_len += length;
 }
 
+void handle_col(Attributes *current, int col) {
+
+	switch (col) {
+		case 30:
+			current->color = get_xft_color(0,0,0,255);
+		break;
+
+		case 31:
+			current->color = get_xft_color(255,0,0,255);
+		break;
+
+		case 32:
+			current->color = get_xft_color(0,255,0,255);
+		break;
+
+		case 33:
+			current->color = get_xft_color(0,255,255,255);
+		break;
+
+		case 34:
+			current->color = get_xft_color(0,0,255,255);
+
+		break;
+
+		case 35:
+			current->color = get_xft_color(255,0,255,255);
+
+		break;
+
+		case 36:
+			current->color = get_xft_color(255,255,0,255);
+
+		break;
+
+		case 37:
+			current->color = get_xft_color(255,255,255,255);
+
+		break;
+	}
+
+}
+
 int handle_attribute(Attributes *current, char *esc) {
 
 	if (current == NULL) {
@@ -206,7 +248,7 @@ int handle_attribute(Attributes *current, char *esc) {
 				break;
 
 			case 30 ... 37:
-				current->color = get_xft_color(255,0,0,255);
+				handle_col(current, arg);
 				break;
 
 			case 38: // fg colour
@@ -237,7 +279,7 @@ int handle_attribute(Attributes *current, char *esc) {
 
 				break;
 
-			case 48: // bg colour
+			case 40 ... 47:
 
 				break;
 
