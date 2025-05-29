@@ -16,7 +16,7 @@ void parse(const char*,int);
 
 // redraw the screen and each line
 void redraw(Display*);
-XftColor *get_xft_color(unsigned char r, unsigned char g, unsigned char b, unsigned char a, Display *dpy, int *screen);
+XftColor *get_xft_color(unsigned char r, unsigned char g, unsigned char b, unsigned char a);
 void remove_substring(char *s, int len, int start, int n);
 
 #endif

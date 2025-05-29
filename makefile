@@ -15,6 +15,8 @@ OBJS = $(SRCS:%=$(BUILD_DIR)/%.o)
 LDFLAGS := -lX11 -lXft
 #LIBRARIES := 
 
+all: $(EXEC)
+
 $(EXEC): $(OBJS)
 	$(CC) -o $@ $(OBJS) $(LDFLAGS)
 
@@ -23,10 +25,12 @@ $(BUILD_DIR)/%.c.o: %.c
 	mkdir -p $(dir $@)
 	$(CC) -o $@ -c $< -I/usr/include/freetype2 -I/usr/include/X11/Xft 
 
-.PHONY: clean bear
+
 clean:
 	rm -r $(BUILD_DIR)
 	rm $(EXEC)
 
 bear:
 	bear -- make
+
+.PHONY: clean bear all
