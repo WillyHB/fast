@@ -26,7 +26,6 @@ typedef struct {
 	_Bool slow_blink;
 	_Bool hidden;
 	_Bool d_underline;
-
 	_Bool s_underline;
 
 } Attributes;
@@ -45,8 +44,9 @@ char raw_buf[4096] = { 0 };
 int raw_len = 0;
 int raw_change = 0;
 // So it is an array of 80 of arrays of 80, where the second is the outer
-char draw_buf[MAX_HEIGHT][MAX_WIDTH] = { 0 };
+char draw_buf[MAX_HEIGHT][MAX_WIDTH] = {0};
 Attributes* attr_buf[MAX_HEIGHT][MAX_WIDTH] = {0};
+
 int draw_len = 0;
 
 int cursor_row = 0;
@@ -260,7 +260,6 @@ int handle_escape(int raw_index) {
 
 	Attributes *current = attr_buf[cursor_row][cursor_column];
 
-
 	char esc[32];
 	int len = 0;
 	char *str;
@@ -405,12 +404,13 @@ void redraw(Display *dpy) {
 	for (int i = 0; i < MAX_HEIGHT; i++) {
 		for (int j = 0; j < MAX_WIDTH; j++) {
 
-			if (attr_buf[j][i] != NULL) {
-				Attributes *attr = attr_buf[j][i];
+			char *fc_char = (*(draw_buf+i)+j);
+
+			if (attr_buf[i][j] != NULL) {
+				Attributes *attr = attr_buf[i][j];
 				col = attr->color;
 			}
 
-			char *fc_char = (*(draw_buf+i)+j);
 			if (*fc_char != 0) {
 				XftDrawString8(draw,col,regular,10+(j*spacing),50+(regular->height*i),(FcChar8*)fc_char,1);
 			}
