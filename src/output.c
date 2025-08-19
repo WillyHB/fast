@@ -31,6 +31,10 @@ typedef struct {
 
 } Attributes;
 
+typedef struct CELL {
+	char c;
+	Attributes *attr;
+} Cell;
 
 // converts from 0-255 range to 0-65535 range
 short ctos(unsigned char c) {
@@ -45,6 +49,10 @@ char raw_buf[4096] = { 0 };
 int raw_len = 0;
 int raw_change = 0;
 // So it is an array of 80 of arrays of 80, where the second is the outer
+
+#error every cell
+#error maybe store indices for the terminal to know where we are scrollback-wise
+Cell *cell_buf[2048][MAX_WIDTH] = {0};
 char draw_buf[MAX_HEIGHT][MAX_WIDTH] = {0};
 Attributes* attr_buf[MAX_HEIGHT][MAX_WIDTH] = {0};
 
@@ -311,24 +319,23 @@ int handle_escape(int raw_index) {
 
 	Attributes *current = attr_buf[cursor_row][cursor_column];
 
-	char esc[32];
+	char esc[32] = {0};
 	int len = 0;
 	char *str;
 
 	// So we check until the previously added character was an alpha numeric, i.e the escape sequence ended
-	while (!isalpha(raw_buf[raw_index])) {
-		esc[len] = raw_buf[raw_index];
-		len++;
-		raw_index++;
+	while (1) {
+		esc[len++] = raw_buf[raw_index];
+		if (isalpha(raw_buf[raw_index++])) {
+			break;
+		}
 	}
 
-	esc[len] = 0;
-
-	switch (raw_buf[raw_index]) {
+	switch (raw_buf[raw_index-1]) {
 		case 'h':
 		case 'l':
 
-			return len;
+			return len-1;
 			break;
 		case 'A':
 
@@ -345,7 +352,7 @@ int handle_escape(int raw_index) {
 		case 'm':
 
 			if (handle_attribute(current, esc)) {
-				return len;
+				return len-1;
 			} 
 
 			break;
@@ -353,7 +360,7 @@ int handle_escape(int raw_index) {
 		case 'K':
 			// first num after 27[
 			if (esc[2] == '1') {
-				for (int i  = 0; i <= cursor_column; i++) {
+				for (int i = 0; i <= cursor_column; i++) {
 					draw_buf[cursor_row][i] = 0;
 				}
 			} else if (esc[2] == '2') {
@@ -365,7 +372,7 @@ int handle_escape(int raw_index) {
 				}
 			}
 
-			return len;
+			return len-1;
 			break;
 
 	}
@@ -384,49 +391,32 @@ void prepare_draw() {
 	// We need a way to like... go column and row. We need to know how many rows possible?
 	for (int i = 0; i < raw_len; i++) {
 		switch (raw_buf[i]) {
-
-			case 7:
-
+			case BEL:
 				break;
-
-			case 8:
-
-
+			case BS:
+				if (cursor_column > 0) --cursor_column;
 				break;
-
-			case 10:
+			case HT:
+				cursor_column += 4;
+				break;
+			case VT:
+			case FF:
+			case LF:
 				cursor_row++;
 				cursor_column = 0;
 
 				break;
-
-			case 11:
-
-				break;
-
-			case 12:
-
-				break;
-
-			case 13:
+			case CR:
 				cursor_column = 0;
-
 				break;
-
-			case 27:
+			case ESC:
 				// THEN CSI CONTROL SEQUENCE INTRODUCER
 				if (raw_buf[i+1] == '[') {
 					// Undefined behaviour if nothing is returned
 					int skip = handle_escape(i);
 					i += skip;
 				}
-
 				break;
-
-			case 127:
-
-				break;
-
 			default:
 				draw_buf[cursor_row][cursor_column] = raw_buf[i];
 				cursor_column++;
@@ -435,9 +425,6 @@ void prepare_draw() {
 					cursor_row++;
 				}
 		}
-
-		// parse
-
 	}
 }
 
