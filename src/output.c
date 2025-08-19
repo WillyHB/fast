@@ -14,6 +14,7 @@
 
 #define MAX_WIDTH 80
 #define MAX_HEIGHT 80
+#define MAX_LINES 2000
 List *history;
 
 typedef struct {
@@ -46,6 +47,15 @@ int raw_change = 0;
 // So it is an array of 80 of arrays of 80, where the second is the outer
 char draw_buf[MAX_HEIGHT][MAX_WIDTH] = {0};
 Attributes* attr_buf[MAX_HEIGHT][MAX_WIDTH] = {0};
+
+int draw_row;
+char **scrollback;
+
+// Okay so we have scrollback where we malloc MAX_LINES * MAX_COLUMNS
+// We want scrollback to hold lines - we then parse them after with possible line-wrapping
+// The draw system only needs to know indices inside of the scrollback for where to draw from
+// We append to the end of the list, so the draw number is always at the bottom and old lines move up
+#warning CLEAN UP THIS CODE AND READ ^^ IMPORTANT
 
 int draw_len = 0;
 
@@ -152,7 +162,6 @@ void handle_col(Attributes *current, int col) {
 int handle_attribute(Attributes *current, char *esc) {
 
 	if (current == NULL) {
-
 		// gets the address of an area of memory with size of attributes
 		// calloc initialises to zero
 		current = create_attr();
@@ -344,18 +353,16 @@ int handle_escape(int raw_index) {
 		case 'K':
 			// first num after 27[
 			if (esc[2] == '1') {
-				while (cursor_column > 0) {
-					cursor_column--;
-					draw_buf[cursor_row][cursor_column] = 0;
+				for (int i  = 0; i <= cursor_column; i++) {
+					draw_buf[cursor_row][i] = 0;
 				}
-
 			} else if (esc[2] == '2') {
 				memset(draw_buf[cursor_row], 0, MAX_WIDTH);
 
-			} else if (esc[2] == 'K') {
-				// Why have to remove first?
-				cursor_column--;
-				draw_buf[cursor_row][cursor_column] = 0;
+			} else if (esc[2] == 'K' || esc[2] == '0') {
+				for (int i = cursor_column; i < MAX_WIDTH; i++) {
+					draw_buf[cursor_row][i] = 0;
+				}
 			}
 
 			return len;

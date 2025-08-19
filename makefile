@@ -1,6 +1,7 @@
 CC = gcc
 
 EXEC := term
+DEBUG := debug.txt
 
 BUILD_DIR :=  ./build
 SRC_DIR = ./src
@@ -29,6 +30,7 @@ $(BUILD_DIR)/%.c.o: %.c
 clean:
 	rm -r $(BUILD_DIR)
 	rm $(EXEC)
+	rm $(DEBUG)
 
 bear:
 	bear -- make

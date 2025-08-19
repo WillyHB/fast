@@ -66,9 +66,7 @@ void * get(List *l, int i) {
 
     if (i > l->count/2) {
         search = l->tail;
-        printf("this is where it fails?\n");
         for (int j = l->count-1; j > i; j--) {
-            printf("III: %d\n", i);
             if (search->prev == NULL) {
                 fputs("Error, count of linked list is wrong", stderr);
             }
@@ -77,7 +75,6 @@ void * get(List *l, int i) {
 
     } else {
         search = l->head;
-        printf("this is where it fails? THIS IS THE HEAD\n");
         for (int j = 0; j < i; j++) {
             if (search->next == NULL) {
                 fputs("Error, count of linked list is wrong", stderr);

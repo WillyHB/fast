@@ -13,193 +13,217 @@
 #include "../include/output.h"
 #include "../include/settings.h"
 
+#define DEBUG_FILENAME "debug.txt"
+
 enum InputType {
-    ASCII,
-    SYM, 
-    NONE,
+	ASCII,
+	SYM, 
+	NONE,
 };
 
 typedef struct Input {
-    enum InputType type;
-    union data {
-        char ascii;
-        KeySym sym;
-    } data;
+	enum InputType type;
+	union data {
+		char ascii;
+		KeySym sym;
+	} data;
 } Input;
 
 char parse_input(XEvent*);
 
+
+int debug_log(const char *string){
+    char buffer[256];
+    sprintf(buffer, "echo \"%s\" >> "DEBUG_FILENAME, string);
+    return system(buffer);
+}
+
 int main(int argc, char *argv[]) {
 
-    int width = 250;
-    int height = 250;
-    XEvent event;
+	int width = 250;
+	int height = 250;
+	XEvent event;
 
-    char *readbuf = malloc(sizeof(char)*2048);
-    memset(readbuf, 0, 2048);
+	char *readbuf = calloc(2048, sizeof(char));
+
+	{
+		FILE *debug_fp = fopen(DEBUG_FILENAME, "w");
+		if (debug_fp) {
+			fclose(debug_fp);
+		}
+	}
 
 
-    int amaster;
-    int cpid = forkpty(&amaster, NULL, NULL, NULL);
-    //stdout of child proccess, is amaster of the parent? Child process is the slave
-    if (cpid == 0) {
-        //stdin comes from master_fd now, stdout is to slave, so also master_fd
+	int amaster;
+	int cpid = forkpty(&amaster, NULL, NULL, NULL);
+	//stdout of child proccess, is amaster of the parent? Child process is the slave
+	if (cpid == 0) {
+		//stdin comes from master_fd now, stdout is to slave, so also master_fd
 
-        char *shell = getenv("SHELL");
-        char *argv[] = { shell, 0};
-        execv(argv[0], argv);
+		char *shell = getenv("SHELL");
+		char *argv[] = { shell, 0};
+		execv(argv[0], argv);
+		// should never get past here
+	} 
 
-        // should never get past here
-    } 
+	open_config();
 
-    open_config();
+	// Connection to X server, holds all information about the server
+	Display *dpy = XOpenDisplay(NULL);
+	if (dpy == NULL) {
+		fputs("Opening window failed", stderr);
+	}
+	int screen = DefaultScreen(dpy);
+	GC gc = DefaultGC(dpy, screen);
+	//ScreenOfDisplay(dpy, DefaultScreen(dpy))->
 
-    // Connection to X server, holds all information about the server
-    Display *dpy = XOpenDisplay(NULL);
-    if (dpy == NULL) {
-        fputs("Opening window failed", stderr);
-    }
-    int screen = DefaultScreen(dpy);
-    GC gc = DefaultGC(dpy, screen);
-    //ScreenOfDisplay(dpy, DefaultScreen(dpy))->
+	// Since from hardware to hardware colours are stored in ints, we don't know what are
+	// We can only for sure get black and white
+	int black = BlackPixel(dpy, screen);
+	int white = WhitePixel(dpy, screen);
 
-    // Since from hardware to hardware colours are stored in ints, we don't know what are
-    // We can only for sure get black and white
-    int black = BlackPixel(dpy, screen);
-    int white = WhitePixel(dpy, screen);
+	Window w = XCreateSimpleWindow(dpy, DefaultRootWindow(dpy), 0, 0, width, height, 0, white, black);
+	// Maps the window on the screen
+	XMapWindow(dpy, w);
 
-    Window w = XCreateSimpleWindow(dpy, DefaultRootWindow(dpy), 0, 0, width, height, 0, white, black);
-    // Maps the window on the screen
-    XMapWindow(dpy, w);
+	// Specifying what kind of events I want my window to get
+	// Exposure event - Checking if window is exposed after being hidden
+	long event_mask = ExposureMask | KeyPressMask | KeyReleaseMask | StructureNotifyMask;
+	XSelectInput(dpy, w, event_mask);
 
-    // Specifying what kind of events I want my window to get
-    // Exposure event - Checking if window is exposed after being hidden
-    long event_mask = ExposureMask | KeyPressMask | KeyReleaseMask | StructureNotifyMask;
-    XSelectInput(dpy, w, event_mask);
+	int x11_fd = ConnectionNumber(dpy);
+	fd_set readset;
+	int fdmax = x11_fd > amaster ? x11_fd : amaster;
 
-    int x11_fd = ConnectionNumber(dpy);
-    fd_set readset;
-    int fdmax = x11_fd > amaster ? x11_fd : amaster;
+	init_output(dpy, &w, screen);
 
-    init_output(dpy, &w, screen);
+	int hc = 0;
 
-    int hc = 0;
+	List *list = init_list();
+	Command *cur = malloc(sizeof(Command));
+	cur->command = calloc(256, sizeof(char));
+	cur->len = 0;
+	add_first(list, cur);
 
-    List *list = init_list();
-    Command *cur = malloc(sizeof(Command));
-    cur->command = calloc(256, sizeof(char));
-    cur->len = 0;
-    add_first(list, cur);
+	for (;;) {
 
-    for (;;) {
+		FD_ZERO(&readset);
+		FD_SET(amaster, &readset);
+		FD_SET(x11_fd, &readset);
 
-        FD_ZERO(&readset);
-        FD_SET(amaster, &readset);
-        FD_SET(x11_fd, &readset);
+		// The number of file descriptors in the sets
+		int fd_count = select(fdmax+1, &readset, NULL, NULL, NULL);
 
-        int n = select(fdmax+1, &readset, NULL, NULL, NULL);
+		// If select returned less than 0 file descriptors in set, error must have occured
+		if (fd_count < 0) {
+			perror("select error");
+			return 2;
+		}
 
-        if (n < 0) {
-            perror("select error");
-            return 2;
-        } else if (n > 0) {
+		// No file descriptors in set - i.e. none ready for reading
+		if (fd_count == 0) {
+			continue;
 
-            if (FD_ISSET(amaster, &readset)) {
-                int n = read(amaster,readbuf,2048);
+		}
 
-                write(STDOUT_FILENO, readbuf, n);
-                parse(readbuf, n);
-                //print(dpy, readbuf, n);
-                memset(readbuf, 0, 2048);
-                
-                XSetForeground(dpy, gc, black);
-                XFillRectangle(dpy, w, gc, 0, 0, width, height);
-                XSetForeground(dpy, gc, white);
-                redraw(dpy);
-            }
+		if (FD_ISSET(amaster, &readset)) {
 
-            if (FD_ISSET(x11_fd, &readset)) {
-                while (XPending(dpy)) {
-                    XNextEvent(dpy, &event);
+			// amount read
+			long read_len = read(amaster,readbuf,2048);
 
-                    if (event.type == Expose) {
-                        width = event.xexpose.width;
-                        height = event.xexpose.height;
-                    } else if (event.type == KeyPress) {
+			//write(STDOUT_FILENO, readbuf, read_len);
+			debug_log(readbuf);
+			parse(readbuf, read_len);
+			memset(readbuf, 0, 2048);
 
-                        char c = parse_input(&event);
+			XSetForeground(dpy, gc, black);
+			XFillRectangle(dpy, w, gc, 0, 0, width, height);
+			XSetForeground(dpy, gc, white);
+			redraw(dpy);
+		}
 
-                        write(amaster, &c, 1);
-                            /*
-                            //sygtem(cur->command);
-                            put(dpy, cur);
-                            set_first(list, cur);
-                            // replace with new memory
-                            cur = malloc(sizeof(Command));
-                            cur->command = calloc(256, sizeof(char));
-                            cur->len = 0;
+		if (FD_ISSET(x11_fd, &readset)) {
+			while (XPending(dpy)) {
+				XNextEvent(dpy, &event);
 
-                            // add a new element in the history
-                            add_first(list, cur);
+				if (event.type == Expose) {
+					width = event.xexpose.width;
+					height = event.xexpose.height;
+				} else if (event.type == KeyPress) {
 
-                            hc = 0;
+					char c = parse_input(&event);
 
-                            // command
-                            // reset line
-                            // add to history
-                            // etc
+					write(amaster, &c, 1);
+					/*
+					//sygtem(cur->command);
+					put(dpy, cur);
+					set_first(list, cur);
+					// replace with new memory
+					cur = malloc(sizeof(Command));
+					cur->command = calloc(256, sizeof(char));
+					cur->len = 0;
 
-                            } else if (i->data.ascii == 21) {
-                            puts("DELETE");
+					// add a new element in the history
+					add_first(list, cur);
 
-                            } else {
-                            cur->command[cur->len++] = i->data.ascii; //post increment
-                            }
-                            */
-                        } else {
-                            /*
-                            switch (i->data.sym) {
-                                case XK_BackSpace:
-                                    if (cur->len > 0) {
-                                        cur->command[--cur->len] = 0; // pre increment
-                                    }
-                                    break;
-                                case XK_Up: 
-                                    if (hc < (list->count-1) ) { hc++; }
-                                    cur = get(list,hc);
-                                    if (cur == NULL) { break; }
-                                    break;
+					hc = 0;
 
-                                case XK_Down:
-                                    if (hc > 0) { hc--; }
-                                    cur = get(list,hc);
-                                    if (cur == NULL) { break; }
-                                    break;
-                            }
-                            */
-                        } 
-                    }
-                }
-            }
-        }
+					// command
+					// reset line
+					// add to history
+					// etc
 
-    close_config();
-    close_output(dpy, screen);
+					} else if (i->data.ascii == 21) {
+					puts("DELETE");
+
+					} else {
+					cur->command[cur->len++] = i->data.ascii; //post increment
+					}
+					*/
+			} else {
+				/*
+				   switch (i->data.sym) {
+				   case XK_BackSpace:
+				   if (cur->len > 0) {
+				   cur->command[--cur->len] = 0; // pre increment
+				   }
+				   break;
+				   case XK_Up: 
+				   if (hc < (list->count-1) ) { hc++; }
+				   cur = get(list,hc);
+				   if (cur == NULL) { break; }
+				   break;
+
+				   case XK_Down:
+				   if (hc > 0) { hc--; }
+				   cur = get(list,hc);
+				   if (cur == NULL) { break; }
+				   break;
+				   }
+				   */
+			} 
+		}
+	}
+}
+
+
+close_config();
+close_output(dpy, screen);
 }
 
 // Need to be able to return a union perhaps of char or KeySym like and a boolean or enum to see if it's printable or not
 char parse_input(XEvent *event) {
-    if (event == NULL) {
-        fprintf(stderr, "Can't pass null pointers to parse");
-        return 0;
-    }
+	if (event == NULL) {
+		fprintf(stderr, "Can't pass null pointers to parse");
+		return 0;
+	}
 
-    char buff[8];
+	char buff[8];
 
-    KeySym sym = XLookupKeysym(&event->xkey, 0);
+	KeySym sym = XLookupKeysym(&event->xkey, 0);
 
-    int symbol = XLookupString(&event->xkey, buff, sizeof(buff), &sym, NULL);
+	int symbol = XLookupString(&event->xkey, buff, sizeof(buff), &sym, NULL);
 
-    return buff[0];
+	return buff[0];
 }
 
