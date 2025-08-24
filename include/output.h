@@ -3,6 +3,38 @@
 
 #include "db_linked_list.h"
 #include <X11/Xft/Xft.h>
+#include <X11/Xlib.h>
+
+#define MAX_WIDTH 80
+#define MAX_HEIGHT 80
+#define MAX_LINES 2048
+
+typedef enum ANSI_ESC_CODE {
+	CUU = 'A', // Cursor Up						(CSI n A) default is 1 (i.e. no n)
+	CUD = 'B', // Cursor Down					(CSI n B) --||--
+	CUF = 'C', // Cursor Forward				(CSI n C) --||--
+	CUB = 'D', // Cursor Back					(CSI n D) --||--
+	CNL = 'E', // Cursor Next Line (beginning)	(CSI n E) --||--
+	CPL = 'F', // Cursor Prev Line (beginning)	(CSI n F) --||--
+	CHA = 'G', // Cursor Horizontal Absolute	(CSI n G) --||--
+	CUP = 'H', // Cursor Position				(CSI n;m H) default is 1;1 i.e. top left
+	ED	= 'J', // Erase in Display				(CSI n J) default is 0
+			   //								n == 0: clear from cursor to end of screen 
+			   //								n == 1: clear from cursor to beginning of screen
+			   //								n == 2: clear entire screen
+			   //								n == 3: clear entire screen + scrollback
+	EL	= 'K', // Erase in Line					(CSI n K) default is 0
+			   //								n == 0: clear from cursor to end of line
+			   //								n == 1: clear from cursor to beginning of line
+			   //								n == 2: clear entire line
+	SU	= 'S', // Scroll Up						(CSI n S) default is 1
+	SD	= 'T', // Scroll Down					(CSI n T) --||--
+	HVP = 'f', // Horizontal Vertial Position	(CSI n;m f) ?
+	SGR = 'm', // Select Graphics Rendition		(CSI n m)					  Set from 16 bit options
+			   //								(CSI [38/48];5;{ID} m)		  Set from 255 bit options
+			   //								(CSI [38/48];2;{r};{g};{b} m) Set from rgb spectrum
+
+} AnsiCode;
 
 typedef enum ASCII_CTRL_CHAR {
 	NUL = 0x00, // NULL
@@ -38,9 +70,8 @@ typedef enum ASCII_CTRL_CHAR {
 	RS	= 0x1E, // Record Separator
 	US	= 0x1F, // Unit Separator
 	SPACE = 0x20,
-
-
 } CtrlChar;
+
 typedef struct Command {
     char *command;
     int len;

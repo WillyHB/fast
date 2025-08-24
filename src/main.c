@@ -9,9 +9,9 @@
 #include <pty.h>
 #include <sys/select.h>
 
-#include "../include/db_linked_list.h"
-#include "../include/output.h"
-#include "../include/settings.h"
+#include "db_linked_list.h"
+#include "output.h"
+#include "settings.h"
 
 #define DEBUG_FILENAME "debug.txt"
 

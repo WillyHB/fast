@@ -14,6 +14,7 @@ OBJS = $(SRCS:%=$(BUILD_DIR)/%.o)
 #objs = $(src:%=%.o)
 
 LDFLAGS := -lX11 -lXft
+INCLUDE := -I include/
 #LIBRARIES := 
 
 all: $(EXEC)
@@ -24,13 +25,14 @@ $(EXEC): $(OBJS)
 #$< is the first prereq
 $(BUILD_DIR)/%.c.o: %.c
 	mkdir -p $(dir $@)
-	$(CC) -o $@ -c $< -I/usr/include/freetype2 -I/usr/include/X11/Xft 
+	$(CC) -o $@ -c $< -I/usr/include/freetype2 -I/usr/include/X11/Xft $(INCLUDE)
 
 
 clean:
 	rm -r $(BUILD_DIR)
-	rm $(EXEC)
-	rm $(DEBUG)
+	rm -f $(EXEC)
+	rm -f $(DEBUG)
+	rm -f "compile_commands.json"
 
 bear:
 	bear -- make

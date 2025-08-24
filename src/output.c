@@ -11,30 +11,7 @@
 #include <wchar.h>
 #include <ctype.h>
 #include <stdbool.h>
-
-#define MAX_WIDTH 80
-#define MAX_HEIGHT 80
-#define MAX_LINES 2000
-List *history;
-
-typedef struct {
-	XftColor *color;
-	_Bool bold;
-	_Bool light;
-	_Bool italic;
-	_Bool strike;
-	_Bool rapid_blink;
-	_Bool slow_blink;
-	_Bool hidden;
-	_Bool d_underline;
-	_Bool s_underline;
-
-} Attributes;
-
-typedef struct CELL {
-	char c;
-	Attributes *attr;
-} Cell;
+#include "parser.h"
 
 // converts from 0-255 range to 0-65535 range
 short ctos(unsigned char c) {
@@ -45,47 +22,15 @@ short ctos(unsigned char c) {
 XftFont *regular;
 
 XftDraw *draw;
-char raw_buf[4096] = { 0 };
-int raw_len = 0;
-int raw_change = 0;
-// So it is an array of 80 of arrays of 80, where the second is the outer
-
-#error every cell
-#error maybe store indices for the terminal to know where we are scrollback-wise
-Cell *cell_buf[2048][MAX_WIDTH] = {0};
-char draw_buf[MAX_HEIGHT][MAX_WIDTH] = {0};
-Attributes* attr_buf[MAX_HEIGHT][MAX_WIDTH] = {0};
-
 int draw_row;
-char **scrollback;
-
-// Okay so we have scrollback where we malloc MAX_LINES * MAX_COLUMNS
-// We want scrollback to hold lines - we then parse them after with possible line-wrapping
-// The draw system only needs to know indices inside of the scrollback for where to draw from
-// We append to the end of the list, so the draw number is always at the bottom and old lines move up
-#warning CLEAN UP THIS CODE AND READ ^^ IMPORTANT
 
 int draw_len = 0;
 
-int cursor_row = 0;
-int cursor_column = 0;
 int spacing;
 Display *display;
 
-void init_attr(Attributes *attr) {
-	memset(attr, 0, sizeof(Attributes));
-	attr->color = get_xft_color(255,255,255,255);
-}
-
-Attributes* create_attr() {
-	Attributes *attr = malloc(sizeof(Attributes));
-	init_attr(attr);
-	return attr;
-}
 
 void init_output(Display* dpy, const Drawable *window, int screen) {
-	history = init_list();
-
 	const char *font_name;
 	// Setup font stuff
 	toml_datum_t tab = get_config("font", "text");
@@ -109,73 +54,75 @@ void init_output(Display* dpy, const Drawable *window, int screen) {
 	display = dpy;
 }
 
-void parse(const char *str, int length) {
+XftColor *get_col(int code) {
 
-	if (length < 0 || str == NULL) {
-		fprintf(stderr, "Invalid string returned from shell");
-		return;
-	}
-
-	raw_change = 1;
-	for (int i = 0; i < length; i++) {
-		raw_buf[raw_len+i] = str[i];
-	}
-
-	// put at end to not mess up for loop above
-	raw_len += length;
-}
-
-void handle_col(Attributes *current, int col) {
-
-	switch (col) {
+	switch (code) {
 		case 30:
-			current->color = get_xft_color(0,0,0,255);
-		break;
-
+		case 40:
+			return get_xft_color(0,0,0,255);
 		case 31:
-			current->color = get_xft_color(255,0,0,255);
-		break;
-
+		case 41:
+			return get_xft_color(255,0,0,255);
 		case 32:
-			current->color = get_xft_color(0,255,0,255);
-		break;
-
+		case 42:
+			return get_xft_color(0,255,0,255);
 		case 33:
-			current->color = get_xft_color(0,255,255,255);
-		break;
-
+		case 43:
+			return get_xft_color(0,255,255,255);
 		case 34:
-			current->color = get_xft_color(0,0,255,255);
-
-		break;
-
+		case 44:
+			return get_xft_color(0,0,255,255);
 		case 35:
-			current->color = get_xft_color(255,0,255,255);
-
-		break;
-
+		case 45:
+			return get_xft_color(255,0,255,255);
 		case 36:
-			current->color = get_xft_color(255,255,0,255);
-
-		break;
-
+		case 46:
+			return get_xft_color(255,255,0,255);
 		case 37:
-			current->color = get_xft_color(255,255,255,255);
-
-		break;
+		case 47:
+			return get_xft_color(255,255,255,255);
+		case 39:
+		case 49:
+			return get_xft_color(255,255,255,255);
+		case 90:
+		case 100:
+			return get_xft_color(0,0,0,255);
+		case 91:
+		case 101:
+			return get_xft_color(255,150,150,255);
+		case 92:
+		case 102:
+			return get_xft_color(150,255,150,255);
+		case 93:
+		case 103:
+			return get_xft_color(255,255,150,255);
+		case 94:
+		case 104:
+			return get_xft_color(150,150,255,255);
+		case 95:
+		case 105:
+			return get_xft_color(255,150,255,255);
+		case 96:
+		case 106:
+			return get_xft_color(150,255,255,255);
+		case 97:
+		case 107:
+			return get_xft_color(255,255,255,255);
+		default:
+			return NULL;
 	}
+}
+
+void add_attr(Attribute *attr, unsigned int attrs) {
+	*attr |= attrs;
 
 }
 
-int handle_attribute(Attributes *current, char *esc) {
+void remove_attr(Attribute *attr, unsigned int attrs) {
+	*attr &= ~(attrs);
+}
 
-	if (current == NULL) {
-		// gets the address of an area of memory with size of attributes
-		// calloc initialises to zero
-		current = create_attr();
-		// set the address of attr_buf[..][..] = address of malloced area
-		attr_buf[cursor_row][cursor_column] = current;
-	}  
+int handle_attribute(Attributes current, char *esc) {
 
 	char *str = strtok((esc+2), ";");
 	if (str == NULL) {
@@ -187,121 +134,86 @@ int handle_attribute(Attributes *current, char *esc) {
 	while (1) {
 		switch (arg) {
 			case 0: // Reset
-				init_attr(current);
+				current.attr = 0;
 				break;
 
 			case 1: // Bold
-				current->bold = 1;
+				current.attr |= BOLD;
 				break;
 
 			case 2: // Faint / Light
-				current->light = 1;
+				current.attr |= LIGHT;
 				break;
 
 			case 3: // Italic
-				current->italic = 1;
+				current.attr |= ITALIC;
 				break;
 
 			case 4: // Underline
-				current->s_underline = 1;
+				current.attr |= S_UNDERLINE;
 				break;
 
 			case 5: // Slow blink
-				current->slow_blink = 1; 
+				current.attr |= SLOW_BLINK;
 				break;
 
 			case 6: // Fast blink
-				current->rapid_blink = 1;
+				current.attr |= RAPID_BLINK;
 				break;
 
 			case 7: // Inverse foreground/background colours
-
+				current.attr |= INVERSE;
 				break;
 
 			case 8: // Hide
-				current->color->color.alpha = 0; // yeah?
-				current->hidden = 1;
-
+				current.attr |= HIDDEN;
 				break;
 
 			case 9: // Strikethrough
-				current->strike = 1;
+				current.attr |= STRIKE;
 				break;
 
 			case 21: // Double underline
-				current->d_underline = 1;
+				current.attr |= D_UNDERLINE;
 				break;
 
 			case 22: // Cancel bold & light
-				current->light = 0;
-				current->bold = 0;
+				current.attr &= ~(LIGHT | BOLD);
 				break;
 
 			case 23: // Not italic
-				current->italic = 0;
+				current.attr &= ~ITALIC;
 				break;
 
 			case 24: // Not underlined
-				current->s_underline = 0;
-				current->d_underline = 0;
+				current.attr &= ~(S_UNDERLINE | D_UNDERLINE);
 				break;
 
 			case 25: // Not blinking
-				current->rapid_blink = 0;
-				current->slow_blink = 0;
+				current.attr &= ~(RAPID_BLINK | SLOW_BLINK);
 				break;
 
 			case 27: // Not reversed
-
+				current.attr &= ~INVERSE;
 				break;
 
 			case 28: // Not hidden
-				current->hidden = 0;
-				current->color->color.alpha = ctos(255);
+				current.attr &= ~HIDDEN;
 				break;
 
 			case 29: // No strike
-				current->strike = 0;
+				current.attr &= ~STRIKE;
 				break;
 
-			case 30 ... 37:
-				handle_col(current, arg);
+			case 30 ... 39:
+			case 90 ... 97:
+				current.bg_color = get_col(arg);
+				break;
 				break;
 
-			case 38: // fg colour
-				str = strtok(NULL, ";");
-				if (str == NULL) { break; }
-
-				int arg2 = atoi(str);
-
-				if (arg2 == 5) {
-					str = strtok(NULL, ";");
-					if (str == NULL) { break; }
-
-					int colour_n = atoi(str);
-
-				} else if (arg2 == 2) {
-					current->color = get_xft_color(
-							ctos(atoi(strtok(NULL, ";"))),
-							ctos(atoi(strtok(NULL, ";"))),
-							ctos(atoi(strtok(NULL, ";"))),
-							ctos(255)
-							);
-				}
-
-				break;
-
-			case 39: // default fg colour
-				current->color = get_xft_color(255,255,255,255);
-
-				break;
-
-			case 40 ... 47:
-
-				break;
-
-			case 49: // default bg colour
-				current->color = get_xft_color(0,0,0,255);
+			case 40 ... 49:
+			case 100 ... 107:
+				current.fg_color = get_col(arg);
 				break;
 		}
 
@@ -311,74 +223,9 @@ int handle_attribute(Attributes *current, char *esc) {
 		}
 		arg = atoi(str);
 	} 
-
 	return 1;
 }
 
-int handle_escape(int raw_index) {
-
-	Attributes *current = attr_buf[cursor_row][cursor_column];
-
-	char esc[32] = {0};
-	int len = 0;
-	char *str;
-
-	// So we check until the previously added character was an alpha numeric, i.e the escape sequence ended
-	while (1) {
-		esc[len++] = raw_buf[raw_index];
-		if (isalpha(raw_buf[raw_index++])) {
-			break;
-		}
-	}
-
-	switch (raw_buf[raw_index-1]) {
-		case 'h':
-		case 'l':
-
-			return len-1;
-			break;
-		case 'A':
-
-			break;
-
-		case 'B':
-
-			break;
-
-		case 'C':
-
-			break;
-
-		case 'm':
-
-			if (handle_attribute(current, esc)) {
-				return len-1;
-			} 
-
-			break;
-
-		case 'K':
-			// first num after 27[
-			if (esc[2] == '1') {
-				for (int i = 0; i <= cursor_column; i++) {
-					draw_buf[cursor_row][i] = 0;
-				}
-			} else if (esc[2] == '2') {
-				memset(draw_buf[cursor_row], 0, MAX_WIDTH);
-
-			} else if (esc[2] == 'K' || esc[2] == '0') {
-				for (int i = cursor_column; i < MAX_WIDTH; i++) {
-					draw_buf[cursor_row][i] = 0;
-				}
-			}
-
-			return len-1;
-			break;
-
-	}
-
-	return 0;
-}
 
 void prepare_draw() {
 
@@ -390,41 +237,6 @@ void prepare_draw() {
 
 	// We need a way to like... go column and row. We need to know how many rows possible?
 	for (int i = 0; i < raw_len; i++) {
-		switch (raw_buf[i]) {
-			case BEL:
-				break;
-			case BS:
-				if (cursor_column > 0) --cursor_column;
-				break;
-			case HT:
-				cursor_column += 4;
-				break;
-			case VT:
-			case FF:
-			case LF:
-				cursor_row++;
-				cursor_column = 0;
-
-				break;
-			case CR:
-				cursor_column = 0;
-				break;
-			case ESC:
-				// THEN CSI CONTROL SEQUENCE INTRODUCER
-				if (raw_buf[i+1] == '[') {
-					// Undefined behaviour if nothing is returned
-					int skip = handle_escape(i);
-					i += skip;
-				}
-				break;
-			default:
-				draw_buf[cursor_row][cursor_column] = raw_buf[i];
-				cursor_column++;
-				if (cursor_column > MAX_WIDTH) {
-					cursor_column = 0;
-					cursor_row++;
-				}
-		}
 	}
 }
 
