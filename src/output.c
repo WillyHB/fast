@@ -18,7 +18,6 @@ short ctos(unsigned char c) {
 	return ((float)c / (float)255) * 65535;
 }
 
-
 XftFont *regular;
 
 XftDraw *draw;
@@ -30,7 +29,15 @@ int spacing;
 Display *display;
 
 
-void init_output(Display* dpy, const Drawable *window, int screen) {
+Buffer *init_output(Display* dpy, const Drawable *window, int screen) {
+
+	Buffer *buf = malloc(sizeof(Buffer));
+	buf->cursor_col = 0;
+	buf->cursor_row = 0;
+	buf->draw_index = 0;
+	buf->scroll_offset = 0;
+	buf->cells = calloc(MAX_WIDTH*MAX_LINES, sizeof(Cell));
+
 	const char *font_name;
 	// Setup font stuff
 	toml_datum_t tab = get_config("font", "text");
@@ -52,87 +59,54 @@ void init_output(Display* dpy, const Drawable *window, int screen) {
 	}
 
 	display = dpy;
+
+	return buf;
 }
 
 XftColor *get_col(int code) {
-
 	switch (code) {
-		case 30:
-		case 40:
+		case 30: case 40:
 			return get_xft_color(0,0,0,255);
-		case 31:
-		case 41:
+		case 31: case 41:
 			return get_xft_color(255,0,0,255);
-		case 32:
-		case 42:
+		case 32: case 42:
 			return get_xft_color(0,255,0,255);
-		case 33:
-		case 43:
+		case 33: case 43:
 			return get_xft_color(0,255,255,255);
-		case 34:
-		case 44:
+		case 34: case 44:
 			return get_xft_color(0,0,255,255);
-		case 35:
-		case 45:
+		case 35: case 45:
 			return get_xft_color(255,0,255,255);
-		case 36:
-		case 46:
+		case 36: case 46:
 			return get_xft_color(255,255,0,255);
-		case 37:
-		case 47:
+		case 37: case 47:
 			return get_xft_color(255,255,255,255);
-		case 39:
-		case 49:
+		case 39: case 49:
 			return get_xft_color(255,255,255,255);
-		case 90:
-		case 100:
+		case 90: case 100:
 			return get_xft_color(0,0,0,255);
-		case 91:
-		case 101:
+		case 91: case 101:
 			return get_xft_color(255,150,150,255);
-		case 92:
-		case 102:
+		case 92: case 102:
 			return get_xft_color(150,255,150,255);
-		case 93:
-		case 103:
+		case 93: case 103:
 			return get_xft_color(255,255,150,255);
-		case 94:
-		case 104:
+		case 94: case 104:
 			return get_xft_color(150,150,255,255);
-		case 95:
-		case 105:
+		case 95: case 105:
 			return get_xft_color(255,150,255,255);
-		case 96:
-		case 106:
+		case 96: case 106:
 			return get_xft_color(150,255,255,255);
-		case 97:
-		case 107:
+		case 97: case 107:
 			return get_xft_color(255,255,255,255);
 		default:
 			return NULL;
 	}
 }
 
-void add_attr(Attribute *attr, unsigned int attrs) {
-	*attr |= attrs;
-
-}
-
-void remove_attr(Attribute *attr, unsigned int attrs) {
-	*attr &= ~(attrs);
-}
-
-int handle_attribute(Attributes current, char *esc) {
-
-	char *str = strtok((esc+2), ";");
-	if (str == NULL) {
-		return 0;
-	}
-
-	int arg = atoi(str);
-
+void handle_attribute(Attributes current, int *argv, int argc) {
 	while (1) {
-		switch (arg) {
+		switch (argv[0]) {
 			case 0: // Reset
 				current.attr = 0;
 				break;
@@ -207,40 +181,29 @@ int handle_attribute(Attributes current, char *esc) {
 
 			case 30 ... 39:
 			case 90 ... 97:
-				current.bg_color = get_col(arg);
+				current.bg_color = get_col(argv[0]);
 				break;
 				break;
 
 			case 40 ... 49:
 			case 100 ... 107:
-				current.fg_color = get_col(arg);
+				current.fg_color = get_col(argv[0]);
+				break;
+			case 38:
+				break;
+			case 48:
 				break;
 		}
 
-		str = strtok(NULL, ";");
-		if (str == NULL) {
-			break;
-		}
-		arg = atoi(str);
 	} 
-	return 1;
 }
 
 
 void prepare_draw() {
 
-	cursor_row = 0;
-	cursor_column = 0;
-
-	raw_change = 0;
-	memset(draw_buf, 0, (unsigned long)MAX_HEIGHT*MAX_WIDTH);
-
-	// We need a way to like... go column and row. We need to know how many rows possible?
-	for (int i = 0; i < raw_len; i++) {
-	}
 }
 
-void redraw(Display *dpy) {
+void redraw(Buffer *buf, Display *dpy) {
 	// Cache draw buffer unless new output is being written
 	if (raw_change) {
 		prepare_draw();

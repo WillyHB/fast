@@ -33,7 +33,8 @@ typedef enum ANSI_ESC_CODE {
 	SGR = 'm', // Select Graphics Rendition		(CSI n m)					  Set from 16 bit options
 			   //								(CSI [38/48];5;{ID} m)		  Set from 255 bit options
 			   //								(CSI [38/48];2;{r};{g};{b} m) Set from rgb spectrum
-
+	PEN = 'h', // Private Enable
+	PDI = 'l', // Private Disable
 } AnsiCode;
 
 typedef enum ASCII_CTRL_CHAR {
@@ -69,21 +70,59 @@ typedef enum ASCII_CTRL_CHAR {
 	GS	= 0x1D, // Group Separator
 	RS	= 0x1E, // Record Separator
 	US	= 0x1F, // Unit Separator
-	SPACE = 0x20,
+	SPACE=0x20,
 } CtrlChar;
 
-typedef struct Command {
-    char *command;
-    int len;
-} Command;
+typedef enum ATTRIBUTE {
+	BOLD		= 1<<0,
+	LIGHT		= 1<<1,
+	ITALIC		= 1<<2,
+	STRIKE		= 1<<3,
+	RAPID_BLINK = 1<<4,
+	SLOW_BLINK	= 1<<5,
+	HIDDEN		= 1<<6,
+	D_UNDERLINE = 1<<7,
+	S_UNDERLINE = 1<<8,
+	INVERSE		= 1<<9,
+} Attribute;
 
-void init_output(Display *dpy, const Drawable *window, int screen);
+
+typedef struct ESCAPE {
+	int *argv;
+	int argc;
+	AnsiCode code;
+} Escape;
+
+typedef struct COLOR {
+	unsigned char r, g, b;
+} Color;
+
+Color xterm_palette[256];
+#warning FILL THIS OUT PROGRAMATICALLY. THEN WHEN WE RECEIVE A 256 CODE, WE REFER TO THE PALETTE TO GET RGB. SAME FOR A 16 BIT CODE BUT MAYBE SOME MATH
+#warning THEN WHEN DRAW WE ALLOCATE THE XFTCOLOR AND CACHE IF IT'S NOT ALREADY CACHED - IN THAT CASE WE USE THAT
+typedef struct {
+	Color fg_color;
+	Color bg_color;
+	Attribute attr;
+} Attributes;
+
+typedef struct CELL {
+	char c;
+	Attributes attr;
+} Cell;
+
+typedef struct BUFFER {
+	Cell *cells;
+	int scroll_offset;
+	int draw_index;
+	int cursor_col;
+	int cursor_row;
+} Buffer;
+Buffer *init_output(Display *dpy, const Drawable *window, int screen);
 void close_output(Display*, int);
 
-void parse(const char*,int);
-
 // redraw the screen and each line
-void redraw(Display*);
+void redraw(Buffer*, Display*);
 XftColor *get_xft_color(unsigned char r, unsigned char g, unsigned char b, unsigned char a);
 void remove_substring(char *s, int len, int start, int n);
 

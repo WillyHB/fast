@@ -1,6 +1,10 @@
 #include "parser.h"
 #include "output.h"
+#include <X11/Xlib.h>
 #include <ctype.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
 
 void add_cell(Buffer *buf, char c, Attributes attr) {
 	buf->cells[buf->draw_index].c = c;
@@ -9,11 +13,18 @@ void add_cell(Buffer *buf, char c, Attributes attr) {
 }
 
 Cell *get_cell(Buffer *buf, int x, int y) {
-	return &buf->cells[(x*MAX_WIDTH)+y];
+	return &buf->cells[(y*MAX_WIDTH)+x];
 }
 
-void parse_raw(Buffer *buf, const char *raw_buf, int len) {
-	for (int i = 0; i < len; i++) {
+void free_attr(Display *dpy, Attributes *attr) {
+	XftColorFree(dpy, DefaultVisual(dpy, DefaultScreen(dpy)), DefaultColormap(dpy, DefaultScreen(dpy)), attr->bg_color);
+	XftColorFree(dpy, DefaultVisual(dpy, DefaultScreen(dpy)), DefaultColormap(dpy, DefaultScreen(dpy)), attr->fg_color);
+	*attr = (Attributes){0};
+
+}
+
+void parse_raw(Display *dpy, Buffer *buf, const char *raw_buf, int raw_len) {
+	for (int i = 0; i < raw_len; i++) {
 		switch (raw_buf[i]) {
 			case BEL:
 				break;
@@ -36,9 +47,38 @@ void parse_raw(Buffer *buf, const char *raw_buf, int len) {
 			case ESC:
 				// THEN CSI CONTROL SEQUENCE INTRODUCER
 				if (raw_buf[i+1] == '[') {
+					i += 2;
 					// Undefined behaviour if nothing is returned
-					int skip = handle_escape(buf, raw_buf+i);
-					i += skip;
+					char esc[32] = {0};
+					int len = 0;
+
+					// So we check until the previously added character was an alpha numeric, i.e the escape sequence ended
+					while (1) {
+						esc[len] = raw_buf[i];
+						if (isalpha(raw_buf[i++])) {
+							break;
+						}
+						len++;
+					}
+
+
+					int args[32] = {0};
+					int argc;
+					char *str = strtok((esc), ";");
+
+					while (1) {
+						if (str == NULL) {
+							break;
+						}
+
+						 args[argc++] = atoi(str);
+
+						str = strtok(NULL, ";");
+					}
+
+					handle_escape(dpy, esc[len-1], args, argc, buf);
+					//handle_escape();
+					i += len;
 				}
 				break;
 			default:
@@ -52,73 +92,62 @@ void parse_raw(Buffer *buf, const char *raw_buf, int len) {
 	}
 }
 
-struct ESCAPE {
-	int *argv;
-	int argc;
-	char code;
-
-};
-int parse_escape(Buffer *buf, const char *raw_buf) {
-
-	Cell *current = get_cell(buf, buf->cursor_col, buf->cursor_row);
-
-	char esc[32] = {0};
-	int len = 0;
-	char *str;
-
-	// So we check until the previously added character was an alpha numeric, i.e the escape sequence ended
-	while (1) {
-		esc[len] = raw_buf[len];
-		if (isalpha(raw_buf[len])) {
+Escape *handle_escape(Display *dpy, AnsiCode code, int *argv, int argc, Buffer *buf) {
+	switch (code) {
+		case PEN:
 			break;
-		}
-		len++;
-	}
-
-	switch (raw_buf[len-1]) {
-		case 'h':
-		case 'l':
-
-			return len-1;
+		case PDI:
 			break;
-		case 'A':
-
+		case CUU:
 			break;
-
-		case 'B':
-
+		case CUD:
 			break;
-
-		case 'C':
-
+		case CUF:
 			break;
-
-		case 'm':
-
+		case CUB:
+			break;
+		case CNL:
+			break;
+		case CPL:
+			break;
+		case CHA:
+			break;
+		case CUP:
+			break;
+		case ED:
+			break;
+		case EL:
+			
+			// first num after 27[
+			if (argc == 0 || argv[0] == 0) {
+				for (int i = buf->cursor_col; i < MAX_WIDTH; i++) {
+					Cell *cell = get_cell(buf, i, buf->cursor_row);
+					cell->c = 0;
+					free_attr(dpy, &cell->attr);
+				}
+			} else if (argv[0] == 1) {
+				for (int i = 0; i <= buf->cursor_col; i++) {
+					Cell *cell = get_cell(buf, i, buf->cursor_row);
+					cell->c = 0;
+					free_attr(dpy, &cell->attr);
+				}
+			} else if (argv[0] == 2) {
+				memset(buf->cells, 0, MAX_WIDTH);
+			}
+			break;
+		case SU:
+			break;
+		case SD:
+			break;
+		case HVP:
+			break;
+		case SGR:
+			/*
 			if (handle_attribute(current, esc)) {
 				return len-1;
 			} 
-
+			*/
 			break;
-
-		case 'K':
-			// first num after 27[
-			if (esc[2] == '1') {
-				for (int i = 0; i <= cursor_column; i++) {
-					draw_buf[cursor_row][i] = 0;
-				}
-			} else if (esc[2] == '2') {
-				memset(draw_buf[cursor_row], 0, MAX_WIDTH);
-
-			} else if (esc[2] == 'K' || esc[2] == '0') {
-				for (int i = cursor_column; i < MAX_WIDTH; i++) {
-					draw_buf[cursor_row][i] = 0;
-				}
-			}
-
-			return len-1;
-			break;
-
 	}
 
 	return 0;

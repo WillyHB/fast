@@ -11,6 +11,7 @@
 
 #include "db_linked_list.h"
 #include "output.h"
+#include "parser.h"
 #include "settings.h"
 
 #define DEBUG_FILENAME "debug.txt"
@@ -38,8 +39,7 @@ int debug_log(const char *string){
     return system(buffer);
 }
 
-int main(int argc, char *argv[]) {
-
+int main() {
 	int width = 250;
 	int height = 250;
 	XEvent event;
@@ -95,15 +95,7 @@ int main(int argc, char *argv[]) {
 	fd_set readset;
 	int fdmax = x11_fd > amaster ? x11_fd : amaster;
 
-	init_output(dpy, &w, screen);
-
-	int hc = 0;
-
-	List *list = init_list();
-	Command *cur = malloc(sizeof(Command));
-	cur->command = calloc(256, sizeof(char));
-	cur->len = 0;
-	add_first(list, cur);
+	Buffer *buf = init_output(dpy, &w, screen);
 
 	for (;;) {
 
