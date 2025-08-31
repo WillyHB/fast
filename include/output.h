@@ -4,12 +4,14 @@
 #include "db_linked_list.h"
 #include <X11/Xft/Xft.h>
 #include <X11/Xlib.h>
+#include <stdint.h>
 
 #define MAX_WIDTH 80
 #define MAX_HEIGHT 80
 #define MAX_LINES 2048
 
 typedef enum ANSI_ESC_CODE {
+	ANSI_NUL = 0,
 	CUU = 'A', // Cursor Up						(CSI n A) default is 1 (i.e. no n)
 	CUD = 'B', // Cursor Down					(CSI n B) --||--
 	CUF = 'C', // Cursor Forward				(CSI n C) --||--
@@ -73,6 +75,26 @@ typedef enum ASCII_CTRL_CHAR {
 	SPACE=0x20,
 } CtrlChar;
 
+typedef enum ANSI_COLOR {
+	BLACK = 0x000000FF,
+	RED = 0xFF0000FF,
+	GREEN = 0x00FF00FF,
+	YELLOW = 0xFFFF00FF,
+	BLUE = 0x0000FFFF,
+	MAGENTA = 0xFF00FFFF,
+	CYAN = 0x00FFFFFF,
+	WHITE = 0xFFFFFFFF,
+	BRIGHT_BLACK = BLACK,
+	BRIGHT_RED = 0xFF9696FF,
+	BRIGHT_GREEN = 0x96FF96FF,
+	BRIGHT_YELLOW = 0xFFFF96FF,
+	BRIGHT_BLUE = 0x9696FFFF,
+	BRIGHT_MAGENTA = 0xFF96FFFF,
+	BRIGHT_CYAN = 0x96FFFFFF,
+	BRIGHT_WHITE = WHITE,
+	DEFAULT = WHITE,
+} AnsiColor;
+
 typedef enum ATTRIBUTE {
 	BOLD		= 1<<0,
 	LIGHT		= 1<<1,
@@ -88,26 +110,19 @@ typedef enum ATTRIBUTE {
 
 
 typedef struct ESCAPE {
-	int *argv;
+	int argv[32];
 	int argc;
 	AnsiCode code;
 } Escape;
 
-typedef struct COLOR {
-	unsigned char r, g, b;
-} Color;
-
-Color xterm_palette[256];
-#warning FILL THIS OUT PROGRAMATICALLY. THEN WHEN WE RECEIVE A 256 CODE, WE REFER TO THE PALETTE TO GET RGB. SAME FOR A 16 BIT CODE BUT MAYBE SOME MATH
-#warning THEN WHEN DRAW WE ALLOCATE THE XFTCOLOR AND CACHE IF IT'S NOT ALREADY CACHED - IN THAT CASE WE USE THAT
 typedef struct {
-	Color fg_color;
-	Color bg_color;
+	unsigned int fg_rgba;
+	unsigned int bg_rgba;
 	Attribute attr;
 } Attributes;
 
 typedef struct CELL {
-	char c;
+	unsigned char c;
 	Attributes attr;
 } Cell;
 
@@ -123,7 +138,10 @@ void close_output(Display*, int);
 
 // redraw the screen and each line
 void redraw(Buffer*, Display*);
+
+XftColor *get_xft_color_packed(unsigned int rgba);
 XftColor *get_xft_color(unsigned char r, unsigned char g, unsigned char b, unsigned char a);
+
 void remove_substring(char *s, int len, int start, int n);
 
 #endif

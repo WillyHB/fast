@@ -96,6 +96,9 @@ int main() {
 	int fdmax = x11_fd > amaster ? x11_fd : amaster;
 
 	Buffer *buf = init_output(dpy, &w, screen);
+	Parser parser = {
+		.state = RAW,
+	};
 
 	for (;;) {
 
@@ -121,17 +124,30 @@ int main() {
 		if (FD_ISSET(amaster, &readset)) {
 
 			// amount read
-			long read_len = read(amaster,readbuf,2048);
+			long read_len = read(amaster,readbuf,4096);
 
+			for (int i = 0; i < read_len; i++) {
+				ParserEvent event = parse(&parser, readbuf[i]);
+				switch (event.type) {
+					case EV_NULL:
+						continue;
+					case EV_CHAR:
+						handle_char(dpy, event.c, buf);
+						break;
+
+					case EV_ESC:
+						handle_escape(dpy, &event.esc, buf);
+						break;
+				}
+			}
 			//write(STDOUT_FILENO, readbuf, read_len);
 			debug_log(readbuf);
-			parse(readbuf, read_len);
-			memset(readbuf, 0, 2048);
+			memset(readbuf, 0, 4096);
 
 			XSetForeground(dpy, gc, black);
 			XFillRectangle(dpy, w, gc, 0, 0, width, height);
 			XSetForeground(dpy, gc, white);
-			redraw(dpy);
+			redraw(buf, dpy);
 		}
 
 		if (FD_ISSET(x11_fd, &readset)) {

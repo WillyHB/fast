@@ -2,8 +2,6 @@
 #include "output.h"
 #include <X11/Xlib.h>
 #include <ctype.h>
-#include <stdio.h>
-#include <stdlib.h>
 #include <string.h>
 
 void add_cell(Buffer *buf, char c, Attributes attr) {
@@ -17,83 +15,91 @@ Cell *get_cell(Buffer *buf, int x, int y) {
 }
 
 void free_attr(Display *dpy, Attributes *attr) {
-	XftColorFree(dpy, DefaultVisual(dpy, DefaultScreen(dpy)), DefaultColormap(dpy, DefaultScreen(dpy)), attr->bg_color);
-	XftColorFree(dpy, DefaultVisual(dpy, DefaultScreen(dpy)), DefaultColormap(dpy, DefaultScreen(dpy)), attr->fg_color);
+#warning FREE
+	//XftColorFree(dpy, DefaultVisual(dpy, DefaultScreen(dpy)), DefaultColormap(dpy, DefaultScreen(dpy)), attr->bg_color);
+	//XftColorFree(dpy, DefaultVisual(dpy, DefaultScreen(dpy)), DefaultColormap(dpy, DefaultScreen(dpy)), attr->fg_color);
 	*attr = (Attributes){0};
-
 }
 
-void parse_raw(Display *dpy, Buffer *buf, const char *raw_buf, int raw_len) {
-	for (int i = 0; i < raw_len; i++) {
-		switch (raw_buf[i]) {
-			case BEL:
-				break;
-			case BS:
-				if (buf->cursor_col > 0) --buf->cursor_col;
-				break;
-			case HT:
-				buf->cursor_col += 4;
-				break;
-			case VT:
-			case FF:
-			case LF:
-				buf->cursor_row++;
-				buf->cursor_col = 0;
+ParserEvent parse(Parser *parser, unsigned char c) {
+	switch (parser->state) {
+		case CSI_ESC:
+			if (c != '[') {
+				parser->state = RAW;
+				return (ParserEvent) {.type = EV_NULL};
+			}
 
-				break;
-			case CR:
-				buf->cursor_col = 0;
-				break;
-			case ESC:
-				// THEN CSI CONTROL SEQUENCE INTRODUCER
-				if (raw_buf[i+1] == '[') {
-					i += 2;
-					// Undefined behaviour if nothing is returned
-					char esc[32] = {0};
-					int len = 0;
+			parser->state = CSI_PARAM;
+			parser->esc = (Escape) {
+				.argc = 0,
+				.argv = {0},
+				.code = ANSI_NUL,
+			};
 
-					// So we check until the previously added character was an alpha numeric, i.e the escape sequence ended
-					while (1) {
-						esc[len] = raw_buf[i];
-						if (isalpha(raw_buf[i++])) {
-							break;
-						}
-						len++;
-					}
+			return (ParserEvent) {.type = EV_NULL};
+		case CSI_PARAM:
+			if (isalpha(c)) {
+				parser->esc.code = c;
+				ParserEvent event = (ParserEvent) {
+					.type = EV_ESC,
+					.esc = parser->esc,
+				};
 
+				parser->state = RAW;
+				return event;
+			}
 
-					int args[32] = {0};
-					int argc;
-					char *str = strtok((esc), ";");
+			if (c == ';') {
+				parser->esc.argc++;
+				return (ParserEvent) { .type = EV_NULL };
+			}
 
-					while (1) {
-						if (str == NULL) {
-							break;
-						}
+			parser->esc.argv[parser->esc.argc] = c;
+			return (ParserEvent) { .type = EV_NULL };
 
-						 args[argc++] = atoi(str);
-
-						str = strtok(NULL, ";");
-					}
-
-					handle_escape(dpy, esc[len-1], args, argc, buf);
-					//handle_escape();
-					i += len;
-				}
-				break;
-			default:
-				get_cell(buf, buf->cursor_col, buf->cursor_row)->c = raw_buf[i];
-				buf->cursor_col++;
-				if (buf->cursor_col > MAX_WIDTH) {
-					buf->cursor_col = 0;
-					buf->cursor_row++;
-				}
-		}
+		case RAW:
+			if (c == ESC) {
+				parser->state = CSI_ESC;
+				return (ParserEvent) {.type = EV_NULL};
+			}
+			return (ParserEvent) {.type = EV_CHAR, .c = c};
 	}
 }
 
-Escape *handle_escape(Display *dpy, AnsiCode code, int *argv, int argc, Buffer *buf) {
-	switch (code) {
+void handle_char(Display *dpy, unsigned char c, Buffer *buf) {
+	switch (c) {
+		case BEL:
+			break;
+		case BS:
+			if (buf->cursor_col > 0) --buf->cursor_col;
+			break;
+		case HT:
+			buf->cursor_col += 4;
+			break;
+		case VT:
+		case FF:
+		case LF:
+			buf->cursor_row++;
+			buf->cursor_col = 0;
+
+			break;
+		case CR:
+			buf->cursor_col = 0;
+			break;
+		default:
+			get_cell(buf, buf->cursor_col, buf->cursor_row)->c = c;
+			buf->cursor_col++;
+			if (buf->cursor_col > MAX_WIDTH) {
+				buf->cursor_col = 0;
+				buf->cursor_row++;
+			}
+	}
+}
+
+void handle_escape(Display *dpy, Escape *esc, Buffer *buf) {
+	switch (esc->code) {
+		case ANSI_NUL:
+			return;
 		case PEN:
 			break;
 		case PDI:
@@ -119,19 +125,17 @@ Escape *handle_escape(Display *dpy, AnsiCode code, int *argv, int argc, Buffer *
 		case EL:
 			
 			// first num after 27[
-			if (argc == 0 || argv[0] == 0) {
+			if (esc->argc == 0 || esc->argv[0] == 0) {
 				for (int i = buf->cursor_col; i < MAX_WIDTH; i++) {
 					Cell *cell = get_cell(buf, i, buf->cursor_row);
-					cell->c = 0;
-					free_attr(dpy, &cell->attr);
+					*cell = (Cell){0};
 				}
-			} else if (argv[0] == 1) {
+			} else if (esc->argv[0] == 1) {
 				for (int i = 0; i <= buf->cursor_col; i++) {
 					Cell *cell = get_cell(buf, i, buf->cursor_row);
-					cell->c = 0;
-					free_attr(dpy, &cell->attr);
+					*cell = (Cell){0};
 				}
-			} else if (argv[0] == 2) {
+			} else if (esc->argv[0] == 2) {
 				memset(buf->cells, 0, MAX_WIDTH);
 			}
 			break;
@@ -149,7 +153,5 @@ Escape *handle_escape(Display *dpy, AnsiCode code, int *argv, int argc, Buffer *
 			*/
 			break;
 	}
-
-	return 0;
 }
 
