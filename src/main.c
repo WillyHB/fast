@@ -140,7 +140,7 @@ int main() {
 						break;
 				}
 			}
-			//write(STDOUT_FILENO, readbuf, read_len);
+			write(STDOUT_FILENO, readbuf, read_len);
 			debug_log(readbuf);
 			memset(readbuf, 0, 4096);
 

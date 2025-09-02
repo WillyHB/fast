@@ -96,6 +96,84 @@ void handle_char(Display *dpy, unsigned char c, Buffer *buf) {
 	}
 }
 
+Attributes parse_attr(SGRParam *argv, int argc) {
+	Attributes attr;
+	for (int i = 0; i < argc; i++) {
+		switch (argv[i]) {
+			case ANSI_RESET_ALL: // Reset
+				attr.attr = 0;
+				break;
+			case ANSI_BOLD: // Bold
+				attr.attr |= BOLD;
+				break;
+			case ANSI_LIGHT: // Faint / Light
+				attr.attr |= LIGHT;
+				break;
+			case ANSI_ITALIC: // Italic
+				attr.attr |= ITALIC;
+				break;
+			case ANSI_S_UNDERLINE: // Underline
+				attr.attr |= S_UNDERLINE;
+				break;
+			case ANSI_SLOW_BLINK: // Slow blink
+				attr.attr |= SLOW_BLINK;
+				break;
+			case ANSI_RAPID_BLINK: // Fast blink
+				attr.attr |= RAPID_BLINK;
+				break;
+			case ANSI_INVERSE: // Inverse foreground/background colours
+				attr.attr |= INVERSE;
+				break;
+			case ANSI_HIDDEN: // Hide
+				attr.attr |= HIDDEN;
+				break;
+			case ANSI_STRIKE: // Strikethrough
+				attr.attr |= STRIKE;
+				break;
+			case ANSI_D_UNDERLINE: // Double underline
+				attr.attr |= D_UNDERLINE;
+				break;
+			case ANSI_RESET_BOLD: // Cancel bold & light
+				attr.attr &= ~(LIGHT | BOLD);
+				break;
+			case ANSI_RESET_ITALIC: // Not italic
+				attr.attr &= ~ITALIC;
+				break;
+			case ANSI_RESET_UNDERLINE: // Not underlined
+				attr.attr &= ~(S_UNDERLINE | D_UNDERLINE);
+				break;
+			case ANSI_RESET_BLINKING: // Not blinking
+				attr.attr &= ~(RAPID_BLINK | SLOW_BLINK);
+				break;
+			case ANSI_RESET_INVERSE: // Not reversed
+				attr.attr &= ~INVERSE;
+				break;
+			case ANSI_RESET_HIDDEN: // Not hidden
+				attr.attr &= ~HIDDEN;
+				break;
+			case ANSI_RESET_STRIKE: // No strike
+				attr.attr &= ~STRIKE;
+				break;
+			case 30 ... 37: // BG colours
+			case 90 ... 97:
+			case 39:
+				attr.bg_rgba = get_col(argv[i]);
+				break;
+			case 40 ... 47:	// FG colours
+			case 100 ... 107:
+			case 49:
+				attr.fg_rgba = get_col(argv[i]);
+				break;
+			case 38:
+				if (argv[i+1] == 5) { }
+				break;
+			case 48:
+				break;
+		}
+
+	} 
+}
+
 void handle_escape(Display *dpy, Escape *esc, Buffer *buf) {
 	switch (esc->code) {
 		case ANSI_NUL:

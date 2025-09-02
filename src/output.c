@@ -1,5 +1,6 @@
-#include "../include/output.h"
-#include "../include/settings.h"
+#include "output.h"
+#include "settings.h"
+#include "color_handler.h"
 
 #include <X11/Xutil.h>
 #include <fontconfig/fontconfig.h>
@@ -15,9 +16,6 @@
 #include "parser.h"
 
 // converts from 0-255 range to 0-65535 range
-short ctos(unsigned char c) {
-	return ((float)c / (float)255) * 65535;
-}
 
 XftFont *regular;
 
@@ -65,78 +63,39 @@ Buffer *init_output(Display* dpy, const Drawable *window, int screen) {
 }
 
 
-unsigned int get_col(int code) {
-	switch (code) {
-		case 30: case 40:
-			return BLACK;
-		case 31: case 41:
-			return RED;
-		case 32: case 42:
-			return GREEN;
-		case 33: case 43:
-			return YELLOW;
-		case 34: case 44:
-			return BLUE;
-		case 35: case 45:
-			return MAGENTA;
-		case 36: case 46:
-			return CYAN;
-		case 37: case 47:
-			return WHITE;
-		case 39: case 49:
-			return WHITE;
-		case 90: case 100:
-			return BLACK;
-		case 91: case 101:
-			return BRIGHT_RED;
-		case 92: case 102:
-			return BRIGHT_GREEN;
-		case 93: case 103:
-			return BRIGHT_YELLOW;
-		case 94: case 104:
-			return BRIGHT_BLUE;
-		case 95: case 105:
-			return BRIGHT_MAGENTA;
-		case 96: case 106:
-			return BRIGHT_CYAN;
-		case 97: case 107:
-			return BRIGHT_WHITE;
-		default:
-			return BLACK;
-	}
-}
 
-void handle_attribute(Attributes current, int *argv, int argc) {
+// pass in escape code
+void handle_attribute(Attributes current, AnsiAttr *argv, int argc) {
 	for (int i = 0; i < argc; i++) {
 		switch (argv[i]) {
-			case 0: // Reset
+			case ANSI_RESET_ALL: // Reset
 				current.attr = 0;
 				break;
-			case 1: // Bold
+			case ANSI_BOLD: // Bold
 				current.attr |= BOLD;
 				break;
-			case 2: // Faint / Light
+			case ANSI_LIGHT: // Faint / Light
 				current.attr |= LIGHT;
 				break;
-			case 3: // Italic
+			case ANSI_ITALIC: // Italic
 				current.attr |= ITALIC;
 				break;
-			case 4: // Underline
+			case ANSI_S_UNDERLINE: // Underline
 				current.attr |= S_UNDERLINE;
 				break;
-			case 5: // Slow blink
+			case ANSI_SLOW_BLINK: // Slow blink
 				current.attr |= SLOW_BLINK;
 				break;
-			case 6: // Fast blink
+			case ANSI_RAPID_BLINK: // Fast blink
 				current.attr |= RAPID_BLINK;
 				break;
-			case 7: // Inverse foreground/background colours
+			case ANSI_INVERSE: // Inverse foreground/background colours
 				current.attr |= INVERSE;
 				break;
-			case 8: // Hide
+			case ANSI_HIDDEN: // Hide
 				current.attr |= HIDDEN;
 				break;
-			case 9: // Strikethrough
+			case ANSI_STRIKE: // Strikethrough
 				current.attr |= STRIKE;
 				break;
 			case 21: // Double underline
@@ -192,10 +151,10 @@ void redraw(Buffer *buf, Display *dpy) {
 			Cell *cell = get_cell(buf, i, j);
  			unsigned char *fc_char = &cell->c;
 
-			XftColor *col = get_xft_color_packed(cell->attr.fg_rgba);
+			XftColor *col get_xft_color_packed(cell->attr.fg_rgba == 0x00000000 ? 0xFFFFFFFF : cell->attr.fg_rgba);
 
 			if (*fc_char != 0) {
-				XftDrawString8(draw,col,regular,10+(j*spacing),50+(regular->height*i),(FcChar8*)fc_char,1);
+				XftDrawString8(draw,col,regular,10+(i*spacing),50+(regular->height*j),(FcChar8*)fc_char,1);
 			}
 		}
 	}
@@ -206,21 +165,6 @@ void close_display(Display *dpy, int screen) {
 	//XftColorFree(dpy, DefaultVisual(dpy,screen), DefaultColormap(dpy,screen), white);
 }
 
-XftColor *get_xft_color_packed(unsigned int rgba) {
-	return get_xft_color(
-			(rgba >> 24) & 0xFF,
-			(rgba >> 16) & 0xFF,
-			(rgba >> 8)  & 0xFF,
-			(rgba)		 & 0xFF
-			);
-}
-XftColor *get_xft_color(unsigned char red, unsigned char green, unsigned char blue, unsigned char alpha) {
-	XftColor *color = malloc(sizeof(XftColor));
-	const XRenderColor xcolor = { .red = ctos(red), .alpha = ctos(alpha), .green = ctos(green), .blue = ctos(blue) };
-
-	XftColorAllocValue(display, DefaultVisual(display, DefaultScreen(display)), DefaultColormap(display, DefaultScreen(display)), &xcolor, color);
-	return color;
-}
 
 void remove_substring(char *string, int len, int start, int n) {
 	// All bad cases
