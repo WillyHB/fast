@@ -27,38 +27,39 @@ XftColor *get_xft_color(Display *dpy, unsigned char red, unsigned char green, un
 
 unsigned int get_col(int code) {
 	switch (code) {
-		case ANSI_BLACK_FG: case ANSI_BLACK_BG:
+		case SGR_BLACK_FG: case SGR_BLACK_BG:
 			return BLACK;
-		case ANSI_RED_FG: case ANSI_RED_BG:
+		case SGR_RED_FG: case SGR_RED_BG:
 			return RED;
-		case ANSI_GREEN_FG: case ANSI_GREEN_BG:
+		case SGR_GREEN_FG: case SGR_GREEN_BG:
 			return GREEN;
-		case ANSI_YELLOW_FG: case ANSI_YELLOW_BG:
+		case SGR_YELLOW_FG: case SGR_YELLOW_BG:
 			return YELLOW;
-		case ANSI_BLUE_FG: case ANSI_BLUE_BG:
+		case SGR_BLUE_FG: case SGR_BLUE_BG:
 			return BLUE;
-		case ANSI_MAGENTA_FG: case ANSI_MAGENTA_BG:
+		case SGR_MAGENTA_FG: case SGR_MAGENTA_BG:
 			return MAGENTA;
-		case ANSI_CYAN_FG: case ANSI_CYAN_BG:
+		case SGR_CYAN_FG: case SGR_CYAN_BG:
 			return CYAN;
-		case ANSI_WHITE_FG: case ANSI_WHITE_BG:
-		case ANSI_DEFAULT_FG: case ANSI_DEFAULT_BG:
+		case SGR_WHITE_FG: case SGR_WHITE_BG:
+		case SGR_DEFAULT_FG: 
 			return WHITE;
-		case ANSI_B_BLACK_FG: case ANSI_B_BLACK_BG:
+		case SGR_B_BLACK_FG: case SGR_B_BLACK_BG:
+		case SGR_DEFAULT_BG:
 			return BLACK;
-		case ANSI_B_RED_FG: case ANSI_B_RED_BG:
+		case SGR_B_RED_FG: case SGR_B_RED_BG:
 			return BRIGHT_RED;
-		case ANSI_B_GREEN_FG: case ANSI_B_GREEN_BG:
+		case SGR_B_GREEN_FG: case SGR_B_GREEN_BG:
 			return BRIGHT_GREEN;
-		case ANSI_B_YELLOW_FG: case ANSI_B_YELLOW_BG:
+		case SGR_B_YELLOW_FG: case SGR_B_YELLOW_BG:
 			return BRIGHT_YELLOW;
-		case ANSI_B_BLUE_FG: case ANSI_B_BLUE_BG:
+		case SGR_B_BLUE_FG: case SGR_B_BLUE_BG:
 			return BRIGHT_BLUE;
-		case ANSI_B_MAGENTA_FG: case ANSI_B_MAGENTA_BG:
+		case SGR_B_MAGENTA_FG: case SGR_B_MAGENTA_BG:
 			return BRIGHT_MAGENTA;
-		case ANSI_B_CYAN_FG: case ANSI_B_CYAN_BG:
+		case SGR_B_CYAN_FG: case SGR_B_CYAN_BG:
 			return BRIGHT_CYAN;
-		case ANSI_B_WHITE_FG: case ANSI_B_WHITE_BG:
+		case SGR_B_WHITE_FG: case SGR_B_WHITE_BG:
 			return BRIGHT_WHITE;
 		default:
 			return BLACK;

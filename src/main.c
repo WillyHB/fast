@@ -118,7 +118,6 @@ int main() {
 		// No file descriptors in set - i.e. none ready for reading
 		if (fd_count == 0) {
 			continue;
-
 		}
 
 		if (FD_ISSET(amaster, &readset)) {

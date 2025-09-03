@@ -25,7 +25,7 @@ $(EXEC): $(OBJS)
 #$< is the first prereq
 $(BUILD_DIR)/%.c.o: %.c
 	mkdir -p $(dir $@)
-	$(CC) -o $@ -c $< -I/usr/include/freetype2 -I/usr/include/X11/Xft $(INCLUDE)
+	$(CC) -g -Wall -o $@ -c $< -I/usr/include/freetype2 -I/usr/include/X11/Xft $(INCLUDE)
 
 
 clean:

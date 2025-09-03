@@ -1,0 +1,5 @@
+bash: ﻿#!/bin/bash: No such file or directory
+[?2004hwilly@william-fedora:~/projects/fast$ ls
+[?2004l[0m[01;34mbuild[0m                  config.toml  [01;34minclude[0m   README.md  [01;32mterm[0m
+compile_commands.json  debug.txt    makefile  [01;34msrc[0m        test.txt
+[?2004hwilly@william-fedora:~/projects/fast$ 

@@ -1,6 +1,8 @@
 #include "parser.h"
+#include "color_handler.h"
 #include "output.h"
 #include <X11/Xlib.h>
+#include <assert.h>
 #include <ctype.h>
 #include <string.h>
 
@@ -12,6 +14,10 @@ void add_cell(Buffer *buf, char c, Attributes attr) {
 
 Cell *get_cell(Buffer *buf, int x, int y) {
 	return &buf->cells[(y*MAX_WIDTH)+x];
+}
+
+Cell *current_cell(Buffer *buf) {
+	return get_cell(buf, buf->cursor_col, buf->cursor_row);
 }
 
 void free_attr(Display *dpy, Attributes *attr) {
@@ -39,6 +45,7 @@ ParserEvent parse(Parser *parser, unsigned char c) {
 			return (ParserEvent) {.type = EV_NULL};
 		case CSI_PARAM:
 			if (isalpha(c)) {
+				parser->esc.argc++;
 				parser->esc.code = c;
 				ParserEvent event = (ParserEvent) {
 					.type = EV_ESC,
@@ -54,9 +61,13 @@ ParserEvent parse(Parser *parser, unsigned char c) {
 				return (ParserEvent) { .type = EV_NULL };
 			}
 
-			parser->esc.argv[parser->esc.argc] = c;
-			return (ParserEvent) { .type = EV_NULL };
+			if (isdigit(c)) {
+				parser->esc.argv[parser->esc.argc] *= 10;
+				parser->esc.argv[parser->esc.argc] += (c-'0');
+				return (ParserEvent) { .type = EV_NULL };
+			}
 
+			return (ParserEvent) { .type = EV_NULL };
 		case RAW:
 			if (c == ESC) {
 				parser->state = CSI_ESC;
@@ -80,6 +91,7 @@ void handle_char(Display *dpy, unsigned char c, Buffer *buf) {
 		case FF:
 		case LF:
 			buf->cursor_row++;
+
 			buf->cursor_col = 0;
 
 			break;
@@ -96,73 +108,74 @@ void handle_char(Display *dpy, unsigned char c, Buffer *buf) {
 	}
 }
 
-Attributes parse_attr(SGRParam *argv, int argc) {
-	Attributes attr;
+void parse_attr(Attributes *attr, int *argv, int argc) {
 	for (int i = 0; i < argc; i++) {
 		switch (argv[i]) {
-			case ANSI_RESET_ALL: // Reset
-				attr.attr = 0;
+			case SGR_RESET_ALL: // Reset
+				attr->attr = 0;
+				attr->fg_rgba = DEFAULT_FG;
+				attr->bg_rgba = DEFAULT_BG;
 				break;
-			case ANSI_BOLD: // Bold
-				attr.attr |= BOLD;
+			case SGR_BOLD: // Bold
+				attr->attr |= BOLD;
 				break;
-			case ANSI_LIGHT: // Faint / Light
-				attr.attr |= LIGHT;
+			case SGR_LIGHT: // Faint / Light
+				attr->attr |= LIGHT;
 				break;
-			case ANSI_ITALIC: // Italic
-				attr.attr |= ITALIC;
+			case SGR_ITALIC: // Italic
+				attr->attr |= ITALIC;
 				break;
-			case ANSI_S_UNDERLINE: // Underline
-				attr.attr |= S_UNDERLINE;
+			case SGR_S_UNDERLINE: // Underline
+				attr->attr |= S_UNDERLINE;
 				break;
-			case ANSI_SLOW_BLINK: // Slow blink
-				attr.attr |= SLOW_BLINK;
+			case SGR_SLOW_BLINK: // Slow blink
+				attr->attr |= SLOW_BLINK;
 				break;
-			case ANSI_RAPID_BLINK: // Fast blink
-				attr.attr |= RAPID_BLINK;
+			case SGR_RAPID_BLINK: // Fast blink
+				attr->attr |= RAPID_BLINK;
 				break;
-			case ANSI_INVERSE: // Inverse foreground/background colours
-				attr.attr |= INVERSE;
+			case SGR_INVERSE: // Inverse foreground/background colours
+				attr->attr |= INVERSE;
 				break;
-			case ANSI_HIDDEN: // Hide
-				attr.attr |= HIDDEN;
+			case SGR_HIDDEN: // Hide
+				attr->attr |= HIDDEN;
 				break;
-			case ANSI_STRIKE: // Strikethrough
-				attr.attr |= STRIKE;
+			case SGR_STRIKE: // Strikethrough
+				attr->attr |= STRIKE;
 				break;
-			case ANSI_D_UNDERLINE: // Double underline
-				attr.attr |= D_UNDERLINE;
+			case SGR_D_UNDERLINE: // Double underline
+				attr->attr |= D_UNDERLINE;
 				break;
-			case ANSI_RESET_BOLD: // Cancel bold & light
-				attr.attr &= ~(LIGHT | BOLD);
+			case SGR_RESET_BOLD: // Cancel bold & light
+				attr->attr &= ~(LIGHT | BOLD);
 				break;
-			case ANSI_RESET_ITALIC: // Not italic
-				attr.attr &= ~ITALIC;
+			case SGR_RESET_ITALIC: // Not italic
+				attr->attr &= ~ITALIC;
 				break;
-			case ANSI_RESET_UNDERLINE: // Not underlined
-				attr.attr &= ~(S_UNDERLINE | D_UNDERLINE);
+			case SGR_RESET_UNDERLINE: // Not underlined
+				attr->attr &= ~(S_UNDERLINE | D_UNDERLINE);
 				break;
-			case ANSI_RESET_BLINKING: // Not blinking
-				attr.attr &= ~(RAPID_BLINK | SLOW_BLINK);
+			case SGR_RESET_BLINKING: // Not blinking
+				attr->attr &= ~(RAPID_BLINK | SLOW_BLINK);
 				break;
-			case ANSI_RESET_INVERSE: // Not reversed
-				attr.attr &= ~INVERSE;
+			case SGR_RESET_INVERSE: // Not reversed
+				attr->attr &= ~INVERSE;
 				break;
-			case ANSI_RESET_HIDDEN: // Not hidden
-				attr.attr &= ~HIDDEN;
+			case SGR_RESET_HIDDEN: // Not hidden
+				attr->attr &= ~HIDDEN;
 				break;
-			case ANSI_RESET_STRIKE: // No strike
-				attr.attr &= ~STRIKE;
+			case SGR_RESET_STRIKE: // No strike
+				attr->attr &= ~STRIKE;
 				break;
 			case 30 ... 37: // BG colours
 			case 90 ... 97:
 			case 39:
-				attr.bg_rgba = get_col(argv[i]);
+				attr->fg_rgba = get_col(argv[i]);
 				break;
 			case 40 ... 47:	// FG colours
 			case 100 ... 107:
 			case 49:
-				attr.fg_rgba = get_col(argv[i]);
+				attr->bg_rgba = get_col(argv[i]);
 				break;
 			case 38:
 				if (argv[i+1] == 5) { }
@@ -224,11 +237,7 @@ void handle_escape(Display *dpy, Escape *esc, Buffer *buf) {
 		case HVP:
 			break;
 		case SGR:
-			/*
-			if (handle_attribute(current, esc)) {
-				return len-1;
-			} 
-			*/
+			parse_attr(&current_cell(buf)->attr, esc->argv, esc->argc);
 			break;
 	}
 }

@@ -1,10 +1,22 @@
 #ifndef COLOR_HANDLER_H
 #define COLOR_HANDLER_H
 
-
 #include "Xft.h"
 #include <X11/Xlib.h>
-typedef enum ANSI_COLOR {
+
+#define EMPTY_ATTR (Attributes) { \
+	.fg_rgba = EMPTY, \
+	.bg_rgba = EMPTY, \
+	.attr = 0, \
+};
+
+#define DEF_ATTR (Attributes) { \
+	.fg_rgba = DEFAULT_FG, \
+	.bg_rgba = DEFAULT_BG, \
+	.attr = 0, \
+};
+
+typedef enum PACKED_COLOR {
 	BLACK = 0x000000FF,
 	RED = 0xFF0000FF,
 	GREEN = 0x00FF00FF,
@@ -21,8 +33,10 @@ typedef enum ANSI_COLOR {
 	BRIGHT_MAGENTA = 0xFF96FFFF,
 	BRIGHT_CYAN = 0x96FFFFFF,
 	BRIGHT_WHITE = WHITE,
-	DEFAULT = WHITE,
-} AnsiColor;
+	DEFAULT_FG = WHITE,
+	DEFAULT_BG = BLACK,
+	EMPTY = 0x00000000,
+} PackedColor;
 
 XftColor *get_xft_color_packed(Display *dpy, unsigned int rgba);
 XftColor *get_xft_color(Display *dpy, unsigned char r, unsigned char g, unsigned char b, unsigned char a);

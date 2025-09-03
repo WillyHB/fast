@@ -3,9 +3,11 @@
 #include "color_handler.h"
 
 #include <X11/Xutil.h>
+#include <assert.h>
 #include <fontconfig/fontconfig.h>
 #include <X11/Xlib.h>
 #include <inttypes.h>
+#include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
@@ -62,99 +64,23 @@ Buffer *init_output(Display* dpy, const Drawable *window, int screen) {
 	return buf;
 }
 
-
-
-// pass in escape code
-void handle_attribute(Attributes current, AnsiAttr *argv, int argc) {
-	for (int i = 0; i < argc; i++) {
-		switch (argv[i]) {
-			case ANSI_RESET_ALL: // Reset
-				current.attr = 0;
-				break;
-			case ANSI_BOLD: // Bold
-				current.attr |= BOLD;
-				break;
-			case ANSI_LIGHT: // Faint / Light
-				current.attr |= LIGHT;
-				break;
-			case ANSI_ITALIC: // Italic
-				current.attr |= ITALIC;
-				break;
-			case ANSI_S_UNDERLINE: // Underline
-				current.attr |= S_UNDERLINE;
-				break;
-			case ANSI_SLOW_BLINK: // Slow blink
-				current.attr |= SLOW_BLINK;
-				break;
-			case ANSI_RAPID_BLINK: // Fast blink
-				current.attr |= RAPID_BLINK;
-				break;
-			case ANSI_INVERSE: // Inverse foreground/background colours
-				current.attr |= INVERSE;
-				break;
-			case ANSI_HIDDEN: // Hide
-				current.attr |= HIDDEN;
-				break;
-			case ANSI_STRIKE: // Strikethrough
-				current.attr |= STRIKE;
-				break;
-			case 21: // Double underline
-				current.attr |= D_UNDERLINE;
-				break;
-			case 22: // Cancel bold & light
-				current.attr &= ~(LIGHT | BOLD);
-				break;
-			case 23: // Not italic
-				current.attr &= ~ITALIC;
-				break;
-			case 24: // Not underlined
-				current.attr &= ~(S_UNDERLINE | D_UNDERLINE);
-				break;
-			case 25: // Not blinking
-				current.attr &= ~(RAPID_BLINK | SLOW_BLINK);
-				break;
-			case 27: // Not reversed
-				current.attr &= ~INVERSE;
-				break;
-			case 28: // Not hidden
-				current.attr &= ~HIDDEN;
-				break;
-			case 29: // No strike
-				current.attr &= ~STRIKE;
-				break;
-			case 30 ... 37:
-			case 90 ... 97:
-			case 39:
-			case 99:
-				current.bg_rgba = get_col(argv[i]);
-				break;
-			case 40 ... 47:
-			case 100 ... 107:
-			case 49:
-			case 109:
-				current.fg_rgba = get_col(argv[i]);
-				break;
-			case 38:
-				if (argv[i+1] == 5) { }
-				break;
-			case 48:
-				break;
-		}
-
-	} 
-}
-
 void redraw(Buffer *buf, Display *dpy) {
+	Attributes curr = DEF_ATTR;
+
 	for (int i = 0; i < MAX_HEIGHT; i++) {
 		for (int j = 0; j < MAX_WIDTH; j++) {
 
-			Cell *cell = get_cell(buf, i, j);
+			Cell *cell = get_cell(buf, j, i);
  			unsigned char *fc_char = &cell->c;
 
-			XftColor *col get_xft_color_packed(cell->attr.fg_rgba == 0x00000000 ? 0xFFFFFFFF : cell->attr.fg_rgba);
+			if (cell->attr.fg_rgba != EMPTY) curr.fg_rgba = cell->attr.fg_rgba;
+			if (cell->attr.bg_rgba != EMPTY) curr.bg_rgba = cell->attr.bg_rgba;
+			//curr.attr |= cell->attr.attr;
+#warning accurately handle attributes
+			XftColor *col = get_xft_color_packed(dpy, curr.fg_rgba);
 
 			if (*fc_char != 0) {
-				XftDrawString8(draw,col,regular,10+(i*spacing),50+(regular->height*j),(FcChar8*)fc_char,1);
+				XftDrawString8(draw,col,regular,10+(j*spacing),50+(regular->height*i),(FcChar8*)fc_char,1);
 			}
 		}
 	}
@@ -196,4 +122,3 @@ void remove_substring(char *string, int len, int start, int n) {
 	strcpy(string,new);
 	free(new);
 }
-

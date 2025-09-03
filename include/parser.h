@@ -31,8 +31,12 @@ typedef struct PARSER {
 
 Cell *get_cell(Buffer *buf, int x, int y);
 void add_cell(Buffer *buf, char c, Attributes attr);
+Cell *current_cell(Buffer *buf);
+
 Attributes *new_attr();
-Attributes parse_attr(SGRParam *argv, int argc);
+void parse_attr(Attributes *attr, int *argv, int argc);
+
+
 ParserEvent parse(Parser *parser, unsigned char c);
 
 void handle_char(Display *dpy, unsigned char c, Buffer *buf);
