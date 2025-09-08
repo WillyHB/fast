@@ -5,9 +5,9 @@
 typedef enum PARSER_STATE {
 	RAW,
 	CSI_ESC,
+	CSI_SEARCH,
 	CSI_PARAM,
 } ParserState;
-
 
 typedef enum EVENT_TYPE {
 	EV_CHAR,

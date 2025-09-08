@@ -188,6 +188,7 @@ typedef struct BUFFER {
 	int cursor_col;
 	int cursor_row;
 } Buffer;
+
 Buffer *init_output(Display *dpy, const Drawable *window, int screen);
 void close_output(Display*, int);
 

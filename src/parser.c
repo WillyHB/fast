@@ -27,6 +27,20 @@ void free_attr(Display *dpy, Attributes *attr) {
 	*attr = (Attributes){0};
 }
 
+ParserEvent handle_digit(Parser *parser, unsigned char c) {
+	parser->esc.argv[parser->esc.argc-1] *= 10;
+	parser->esc.argv[parser->esc.argc-1] += (c-'0');
+	return (ParserEvent) { .type = EV_NULL };
+}
+
+ParserEvent handle_final(Parser *parser, unsigned char c) {
+	parser->esc.code = c;
+	return (ParserEvent) {
+		.type = EV_ESC,
+		.esc = parser->esc,
+	};
+}
+
 ParserEvent parse(Parser *parser, unsigned char c) {
 	switch (parser->state) {
 		case CSI_ESC:
@@ -35,7 +49,7 @@ ParserEvent parse(Parser *parser, unsigned char c) {
 				return (ParserEvent) {.type = EV_NULL};
 			}
 
-			parser->state = CSI_PARAM;
+			parser->state = CSI_SEARCH;
 			parser->esc = (Escape) {
 				.argc = 0,
 				.argv = {0},
@@ -43,31 +57,31 @@ ParserEvent parse(Parser *parser, unsigned char c) {
 			};
 
 			return (ParserEvent) {.type = EV_NULL};
-		case CSI_PARAM:
+		case CSI_SEARCH:
 			if (isalpha(c)) {
-				parser->esc.argc++;
-				parser->esc.code = c;
-				ParserEvent event = (ParserEvent) {
-					.type = EV_ESC,
-					.esc = parser->esc,
-				};
-
 				parser->state = RAW;
-				return event;
-			}
-
-			if (c == ';') {
-				parser->esc.argc++;
-				return (ParserEvent) { .type = EV_NULL };
+				return handle_final(parser, c);
 			}
 
 			if (isdigit(c)) {
-				parser->esc.argv[parser->esc.argc] *= 10;
-				parser->esc.argv[parser->esc.argc] += (c-'0');
+				parser->esc.argc++;
+				parser->state = CSI_PARAM;
+				return handle_digit(parser, c);
+			}
+
+			return (ParserEvent) {.type = EV_NULL };
+		case CSI_PARAM:
+			if (isalpha(c)) {
+				parser->state = RAW;
+				return handle_final(parser, c);
+			}
+
+			if (c == ';') {
+				parser->state = CSI_SEARCH;
 				return (ParserEvent) { .type = EV_NULL };
 			}
 
-			return (ParserEvent) { .type = EV_NULL };
+			return handle_digit(parser, c);
 		case RAW:
 			if (c == ESC) {
 				parser->state = CSI_ESC;
@@ -231,6 +245,10 @@ void handle_escape(Display *dpy, Escape *esc, Buffer *buf) {
 			
 			break;
 		case CUP:
+			char b[32];
+			sprintf(b, "echo argc %d > test.txt", esc->argc);
+			system(b);
+
 			if (esc->argc == 0) {
 				buf->cursor_row = 0;
 				buf->cursor_col = 0;
@@ -242,13 +260,13 @@ void handle_escape(Display *dpy, Escape *esc, Buffer *buf) {
 		case ED:
 			int offset = buf->cursor_col+(buf->cursor_row*MAX_WIDTH);
 			if (esc->argc == 0 || esc->argv[0] == ED_CLEAR_TO_END) {
-				memset(buf->cells+offset, 0, (MAX_WIDTH*MAX_HEIGHT)-offset);
+				memset(buf->cells+offset, 0, ((MAX_WIDTH*MAX_HEIGHT)-offset)*sizeof(Cell));
 			} else if (esc->argv[0] == ED_CLEAR_TO_BEGINNING) {
 				memset(buf->cells, 0, offset);
 			} else if (esc->argv[0] == ED_CLEAR_SCREEN) {
-				memset(buf->cells, 0, MAX_WIDTH*MAX_HEIGHT);
+				memset(buf->cells, 0, (MAX_WIDTH*MAX_HEIGHT)*sizeof(Cell));
 			} else if (esc->argv[0] == ED_CLEAR_ALL) {
-				memset(buf->cells, 0, MAX_WIDTH*MAX_HEIGHT);
+				memset(buf->cells, 0, (MAX_WIDTH*MAX_HEIGHT)*sizeof(Cell));
 			}
 			break;
 		case EL:
