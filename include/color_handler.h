@@ -41,5 +41,6 @@ typedef enum PACKED_COLOR {
 XftColor *get_xft_color_packed(Display *dpy, unsigned int rgba);
 XftColor *get_xft_color(Display *dpy, unsigned char r, unsigned char g, unsigned char b, unsigned char a);
 unsigned int get_col(int code);
+unsigned int pack(unsigned char r, unsigned char g, unsigned char b, unsigned char a);
 
 #endif

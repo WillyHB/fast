@@ -37,6 +37,10 @@ typedef enum ANSI_ESC_CODE {
 			   //								(CSI [38/48];2;{r};{g};{b} m) Set from rgb spectrum
 	PEN = 'h', // Private Enable
 	PDI = 'l', // Private Disable
+	RR	= 'n', // Report Request				(CSI x n)
+#error implement RR
+			   //								x == 5: device status report (respond CSI 0 n for OK)
+			   //								x == 6: cursor position report (respond CSI x;y R)
 } AnsiCode;
 
 typedef enum ERASE_DISPLAY_MODE {

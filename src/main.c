@@ -34,9 +34,11 @@ char parse_input(XEvent*);
 
 
 int debug_log(const char *string){
+	/*
     char buffer[256];
     sprintf(buffer, "echo \"%s\" >> "DEBUG_FILENAME, string);
     return system(buffer);
+	*/
 }
 
 int main() {

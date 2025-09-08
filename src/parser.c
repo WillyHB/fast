@@ -105,9 +105,7 @@ void handle_char(Display *dpy, unsigned char c, Buffer *buf) {
 		case FF:
 		case LF:
 			buf->cursor_row++;
-
 			buf->cursor_col = 0;
-
 			break;
 		case CR:
 			buf->cursor_col = 0;
@@ -192,9 +190,19 @@ void parse_attr(Attributes *attr, int *argv, int argc) {
 				attr->bg_rgba = get_col(argv[i]);
 				break;
 			case 38:
-				if (argv[i+1] == 5) { }
+				if (argv[i+1] == 5) { 
+					attr->fg_rgba = 0xFF000000;
+				} else if (argv[i+1] == 2) {
+					attr->fg_rgba = pack(argv[i+2], argv[i+3], argv[i+4], 0xFF);
+				}
 				break;
 			case 48:
+				if (argv[i+1] == 5) {
+					attr->bg_rgba = 0xFF000000;
+				} else if (argv[i+1] == 2) {
+					attr->bg_rgba = pack(argv[i+2], argv[i+3], argv[i+4], 0xFF);
+
+				}
 				break;
 		}
 
@@ -245,10 +253,6 @@ void handle_escape(Display *dpy, Escape *esc, Buffer *buf) {
 			
 			break;
 		case CUP:
-			char b[32];
-			sprintf(b, "echo argc %d > test.txt", esc->argc);
-			system(b);
-
 			if (esc->argc == 0) {
 				buf->cursor_row = 0;
 				buf->cursor_col = 0;
@@ -258,31 +262,27 @@ void handle_escape(Display *dpy, Escape *esc, Buffer *buf) {
 			}
 			break;
 		case ED:
-			int offset = buf->cursor_col+(buf->cursor_row*MAX_WIDTH);
-			if (esc->argc == 0 || esc->argv[0] == ED_CLEAR_TO_END) {
-				memset(buf->cells+offset, 0, ((MAX_WIDTH*MAX_HEIGHT)-offset)*sizeof(Cell));
-			} else if (esc->argv[0] == ED_CLEAR_TO_BEGINNING) {
-				memset(buf->cells, 0, offset);
-			} else if (esc->argv[0] == ED_CLEAR_SCREEN) {
-				memset(buf->cells, 0, (MAX_WIDTH*MAX_HEIGHT)*sizeof(Cell));
-			} else if (esc->argv[0] == ED_CLEAR_ALL) {
-				memset(buf->cells, 0, (MAX_WIDTH*MAX_HEIGHT)*sizeof(Cell));
+			{
+				int offset = buf->cursor_col+(buf->cursor_row*MAX_WIDTH);
+				if (esc->argc == 0 || esc->argv[0] == ED_CLEAR_TO_END) {
+					memset(buf->cells+offset, 0, ((MAX_WIDTH*MAX_HEIGHT)-offset)*sizeof(Cell));
+				} else if (esc->argv[0] == ED_CLEAR_TO_BEGINNING) {
+					memset(buf->cells, 0, offset);
+				} else if (esc->argv[0] == ED_CLEAR_SCREEN) {
+					memset(buf->cells, 0, (MAX_WIDTH*MAX_HEIGHT)*sizeof(Cell));
+				} else if (esc->argv[0] == ED_CLEAR_ALL) {
+					memset(buf->cells, 0, (MAX_WIDTH*MAX_HEIGHT)*sizeof(Cell));
+				}
 			}
 			break;
 		case EL:
-			
-			// first num after 27[
 			if (esc->argc == 0 || esc->argv[0] == EL_CLEAR_TO_END) {
-				for (int i = buf->cursor_col; i < MAX_WIDTH; i++) {
-					*get_cell(buf, i, buf->cursor_row) = (Cell){0};
-				}
+				int offset = buf->cursor_col+(buf->cursor_row*MAX_WIDTH);
+				memset(buf->cells+offset, 0, MAX_WIDTH - buf->cursor_col);
 			} else if (esc->argv[0] == EL_CLEAR_TO_BEGINNING) {
-				for (int i = buf->cursor_col; i >= 0; i--) {
-					*get_cell(buf, i, buf->cursor_row) = (Cell){0};
-				}
+				memset(buf->cells+(buf->cursor_row*MAX_WIDTH), 0, buf->cursor_col);
 			} else if (esc->argv[0] == EL_CLEAR_LINE) {
-				#warning make work properly
-				//memset(buf->cells, 0, MAX_WIDTH);
+				memset(buf->cells+(buf->cursor_row*MAX_WIDTH), 0, MAX_WIDTH);
 			}
 			break;
 		case SU:

@@ -65,3 +65,8 @@ unsigned int get_col(int code) {
 			return BLACK;
 	}
 }
+
+unsigned int pack(unsigned char r, unsigned char g, unsigned char b, unsigned char a) {
+	return r << 24 | g << 16 | b << 8 | a;
+}
+
