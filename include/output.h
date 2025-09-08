@@ -31,13 +31,26 @@ typedef enum ANSI_ESC_CODE {
 			   //								n == 2: clear entire line
 	SU	= 'S', // Scroll Up						(CSI n S) default is 1
 	SD	= 'T', // Scroll Down					(CSI n T) --||--
-	HVP = 'f', // Horizontal Vertial Position	(CSI n;m f) ?
+	HVP = 'f', // Horizontal Vertical Position	(CSI n;m f) ?
 	SGR = 'm', // Select Graphics Rendition		(CSI n m)					  Set from 16 bit options
 			   //								(CSI [38/48];5;{ID} m)		  Set from 255 bit options
 			   //								(CSI [38/48];2;{r};{g};{b} m) Set from rgb spectrum
 	PEN = 'h', // Private Enable
 	PDI = 'l', // Private Disable
 } AnsiCode;
+
+typedef enum ERASE_DISPLAY_MODE {
+	ED_CLEAR_TO_END = 0,
+	ED_CLEAR_TO_BEGINNING = 1,
+	ED_CLEAR_SCREEN = 2,
+	ED_CLEAR_ALL = 3,
+} EraseDisplayMode;
+
+typedef enum ERASE_LINE_MODE {
+	EL_CLEAR_TO_END = 0,
+	EL_CLEAR_TO_BEGINNING = 1,
+	EL_CLEAR_LINE = 2,
+} EraseLineMode;
 
 typedef enum ASCII_CTRL_CHAR {
 	NUL = 0x00, // NULL

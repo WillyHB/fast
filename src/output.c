@@ -17,8 +17,6 @@
 #include "Xft.h"
 #include "parser.h"
 
-// converts from 0-255 range to 0-65535 range
-
 XftFont *regular;
 
 XftDraw *draw;
@@ -32,6 +30,12 @@ Display *display;
 
 Buffer *init_output(Display* dpy, const Drawable *window, int screen) {
 
+	// Implement ring buffer
+	//
+	//
+	//
+	//
+	//
 	Buffer *buf = malloc(sizeof(Buffer));
 	buf->cursor_col = 0;
 	buf->cursor_row = 0;

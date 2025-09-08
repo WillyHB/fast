@@ -195,39 +195,76 @@ void handle_escape(Display *dpy, Escape *esc, Buffer *buf) {
 			break;
 		case PDI:
 			break;
+#warning LESS REPETITION
 		case CUU:
+			buf->cursor_row -= esc->argc == 0 ? 1 : esc->argv[0];
 			break;
 		case CUD:
+			buf->cursor_row += esc->argc == 0 ? 1 : esc->argv[0];
 			break;
 		case CUF:
+			buf->cursor_col += esc->argc == 0 ? 1 : esc->argv[0];
 			break;
 		case CUB:
+			buf->cursor_col -= esc->argc == 0 ? 1 : esc->argv[0];
 			break;
 		case CNL:
+			if (esc->argc == 0) {
+				buf->cursor_row++;
+				buf->cursor_col = 0;
+			} else {
+				buf->cursor_row += esc->argv[0];
+				buf->cursor_col = 0;
+			}
 			break;
 		case CPL:
+			if (esc->argc == 0) {
+				buf->cursor_row--;
+				buf->cursor_col = 0;
+			} else {
+				buf->cursor_row -= esc->argv[0];
+				buf->cursor_col = 0;
+			}
 			break;
 		case CHA:
+			buf->cursor_col = esc->argc == 0 ? 0 : esc->argv[0];
+			
 			break;
 		case CUP:
+			if (esc->argc == 0) {
+				buf->cursor_row = 0;
+				buf->cursor_col = 0;
+			} else if (esc->argc >= 2){
+			buf->cursor_col = esc->argv[0];
+			buf->cursor_row = esc->argv[1];
+			}
 			break;
 		case ED:
+			int offset = buf->cursor_col+(buf->cursor_row*MAX_WIDTH);
+			if (esc->argc == 0 || esc->argv[0] == ED_CLEAR_TO_END) {
+				memset(buf->cells+offset, 0, (MAX_WIDTH*MAX_HEIGHT)-offset);
+			} else if (esc->argv[0] == ED_CLEAR_TO_BEGINNING) {
+				memset(buf->cells, 0, offset);
+			} else if (esc->argv[0] == ED_CLEAR_SCREEN) {
+				memset(buf->cells, 0, MAX_WIDTH*MAX_HEIGHT);
+			} else if (esc->argv[0] == ED_CLEAR_ALL) {
+				memset(buf->cells, 0, MAX_WIDTH*MAX_HEIGHT);
+			}
 			break;
 		case EL:
 			
 			// first num after 27[
-			if (esc->argc == 0 || esc->argv[0] == 0) {
+			if (esc->argc == 0 || esc->argv[0] == EL_CLEAR_TO_END) {
 				for (int i = buf->cursor_col; i < MAX_WIDTH; i++) {
-					Cell *cell = get_cell(buf, i, buf->cursor_row);
-					*cell = (Cell){0};
+					*get_cell(buf, i, buf->cursor_row) = (Cell){0};
 				}
-			} else if (esc->argv[0] == 1) {
-				for (int i = 0; i <= buf->cursor_col; i++) {
-					Cell *cell = get_cell(buf, i, buf->cursor_row);
-					*cell = (Cell){0};
+			} else if (esc->argv[0] == EL_CLEAR_TO_BEGINNING) {
+				for (int i = buf->cursor_col; i >= 0; i--) {
+					*get_cell(buf, i, buf->cursor_row) = (Cell){0};
 				}
-			} else if (esc->argv[0] == 2) {
-				memset(buf->cells, 0, MAX_WIDTH);
+			} else if (esc->argv[0] == EL_CLEAR_LINE) {
+				#warning make work properly
+				//memset(buf->cells, 0, MAX_WIDTH);
 			}
 			break;
 		case SU:

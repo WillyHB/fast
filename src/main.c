@@ -74,8 +74,6 @@ int main() {
 		fputs("Opening window failed", stderr);
 	}
 	int screen = DefaultScreen(dpy);
-	GC gc = DefaultGC(dpy, screen);
-	//ScreenOfDisplay(dpy, DefaultScreen(dpy))->
 
 	// Since from hardware to hardware colours are stored in ints, we don't know what are
 	// We can only for sure get black and white
@@ -101,13 +99,14 @@ int main() {
 	};
 
 	for (;;) {
-
 		FD_ZERO(&readset);
 		FD_SET(amaster, &readset);
 		FD_SET(x11_fd, &readset);
 
 		// The number of file descriptors in the sets
+		puts("Hello");
 		int fd_count = select(fdmax+1, &readset, NULL, NULL, NULL);
+		puts("Hi\n");
 
 		// If select returned less than 0 file descriptors in set, error must have occured
 		if (fd_count < 0) {
@@ -143,9 +142,11 @@ int main() {
 			debug_log(readbuf);
 			memset(readbuf, 0, 4096);
 
+			/*
 			XSetForeground(dpy, gc, black);
 			XFillRectangle(dpy, w, gc, 0, 0, width, height);
 			XSetForeground(dpy, gc, white);
+			*/
 			redraw(buf, dpy);
 		}
 
