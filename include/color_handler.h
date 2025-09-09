@@ -8,13 +8,13 @@
 	.fg_rgba = EMPTY, \
 	.bg_rgba = EMPTY, \
 	.attr = 0, \
-};
+}
 
 #define DEF_ATTR (Attributes) { \
 	.fg_rgba = DEFAULT_FG, \
 	.bg_rgba = DEFAULT_BG, \
 	.attr = 0, \
-};
+}
 
 typedef enum PACKED_COLOR {
 	BLACK = 0x000000FF,

@@ -9,6 +9,7 @@
 #include <pty.h>
 #include <sys/select.h>
 
+#include "color_handler.h"
 #include "db_linked_list.h"
 #include "output.h"
 #include "parser.h"
@@ -98,6 +99,8 @@ int main() {
 	Buffer *buf = init_output(dpy, &w, screen);
 	Parser parser = {
 		.state = RAW,
+		.current_attr = DEF_ATTR,
+		.esc = {0},
 	};
 
 	for (;;) {
@@ -130,11 +133,11 @@ int main() {
 					case EV_NULL:
 						continue;
 					case EV_CHAR:
-						handle_char(dpy, event.c, buf);
+						handle_char(&parser, event.c, buf);
 						break;
 
 					case EV_ESC:
-						handle_escape(dpy, &event.esc, buf);
+						handle_escape(&parser, &event.esc, buf);
 						break;
 				}
 			}

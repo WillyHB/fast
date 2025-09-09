@@ -27,6 +27,7 @@ typedef struct PARSER_EVENT {
 typedef struct PARSER {
 	ParserState state;
 	Escape esc;
+	Attributes current_attr;
 } Parser;
 
 Cell *get_cell(Buffer *buf, int x, int y);
@@ -39,7 +40,7 @@ void parse_attr(Attributes *attr, int *argv, int argc);
 
 ParserEvent parse(Parser *parser, unsigned char c);
 
-void handle_char(Display *dpy, unsigned char c, Buffer *buf);
-void handle_escape(Display *dpy, Escape *esc, Buffer *buf);
+void handle_char(Parser *parser, unsigned char c, Buffer *buf);
+void handle_escape(Parser *parser, Escape *esc, Buffer *buf);
 
 #endif

@@ -91,7 +91,7 @@ ParserEvent parse(Parser *parser, unsigned char c) {
 	}
 }
 
-void handle_char(Display *dpy, unsigned char c, Buffer *buf) {
+void handle_char(Parser *parser, unsigned char c, Buffer *buf) {
 	switch (c) {
 		case BEL:
 			break;
@@ -111,7 +111,8 @@ void handle_char(Display *dpy, unsigned char c, Buffer *buf) {
 			buf->cursor_col = 0;
 			break;
 		default:
-			get_cell(buf, buf->cursor_col, buf->cursor_row)->c = c;
+			current_cell(buf)->c = c;
+			current_cell(buf)->attr = parser->current_attr;
 			buf->cursor_col++;
 			if (buf->cursor_col > MAX_WIDTH) {
 				buf->cursor_col = 0;
@@ -209,7 +210,7 @@ void parse_attr(Attributes *attr, int *argv, int argc) {
 	} 
 }
 
-void handle_escape(Display *dpy, Escape *esc, Buffer *buf) {
+void handle_escape(Parser *parser, Escape *esc, Buffer *buf) {
 	switch (esc->code) {
 		case ANSI_NUL:
 			return;
@@ -292,7 +293,7 @@ void handle_escape(Display *dpy, Escape *esc, Buffer *buf) {
 		case HVP:
 			break;
 		case SGR:
-			parse_attr(&current_cell(buf)->attr, esc->argv, esc->argc);
+			parse_attr(&parser->current_attr, esc->argv, esc->argc);
 			break;
 	}
 }

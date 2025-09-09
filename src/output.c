@@ -2,7 +2,9 @@
 #include "settings.h"
 #include "color_handler.h"
 
+#include <X11/Xft/Xft.h>
 #include <X11/Xutil.h>
+#include <X11/extensions/Xrender.h>
 #include <assert.h>
 #include <fontconfig/fontconfig.h>
 #include <X11/Xlib.h>
@@ -69,7 +71,8 @@ Buffer *init_output(Display* dpy, const Drawable *window, int screen) {
 }
 
 void redraw(Buffer *buf, Display *dpy) {
-	Attributes curr = DEF_ATTR;
+	int cell_width = 20;
+	int cell_height = regular->ascent + regular->descent + 5;
 
 	for (int i = 0; i < MAX_HEIGHT; i++) {
 		for (int j = 0; j < MAX_WIDTH; j++) {
@@ -77,15 +80,16 @@ void redraw(Buffer *buf, Display *dpy) {
 			Cell *cell = get_cell(buf, j, i);
  			unsigned char *fc_char = &cell->c;
 
-			if (cell->attr.fg_rgba != EMPTY) curr.fg_rgba = cell->attr.fg_rgba;
-			if (cell->attr.bg_rgba != EMPTY) curr.bg_rgba = cell->attr.bg_rgba;
 			//curr.attr |= cell->attr.attr;
 #warning accurately handle attributes
-			XftColor *col = get_xft_color_packed(dpy, curr.fg_rgba);
+			XftColor *fg_col = get_xft_color_packed(dpy, cell->attr.fg_rgba);
+			XftColor *bg_col = get_xft_color_packed(dpy, cell->attr.bg_rgba);
 
+			XftDrawRect(draw, bg_col, (j*cell_width),cell_height+(cell_height*i), cell_width, cell_height);
 			if (*fc_char != 0) {
-				XftDrawString8(draw,col,regular,10+(j*spacing),50+(regular->height*i),(FcChar8*)fc_char,1);
+				XftDrawString8(draw,fg_col,regular,(j*cell_width),cell_height+(cell_height*i),(FcChar8*)fc_char,1);
 			}
+
 		}
 	}
 }
