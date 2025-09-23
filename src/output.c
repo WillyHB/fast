@@ -39,8 +39,9 @@ Buffer *init_output(Display* dpy, const Drawable *window, int screen) {
 	//
 	//
 	Buffer *buf = malloc(sizeof(Buffer));
-	buf->cursor_col = 0;
-	buf->cursor_row = 0;
+	buf->cursor = (Position){0};
+	buf->sco_pos = (Position){0};
+	buf->dec_pos = (Position){0};
 	buf->draw_index = 0;
 	buf->scroll_offset = 0;
 	buf->cells = calloc(MAX_WIDTH*MAX_LINES, sizeof(Cell));

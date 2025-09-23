@@ -137,10 +137,11 @@ int main() {
 						break;
 
 					case EV_ESC:
-						handle_escape(&parser, &event.esc, buf);
+						handle_escape(&parser, &event.esc, buf, amaster);
 						break;
 				}
 			}
+
 			write(STDOUT_FILENO, readbuf, read_len);
 			debug_log(readbuf);
 			memset(readbuf, 0, 4096);

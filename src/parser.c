@@ -4,7 +4,9 @@
 #include <X11/Xlib.h>
 #include <assert.h>
 #include <ctype.h>
+#include <stdio.h>
 #include <string.h>
+#include <unistd.h>
 
 void add_cell(Buffer *buf, char c, Attributes attr) {
 	buf->cells[buf->draw_index].c = c;
@@ -17,7 +19,7 @@ Cell *get_cell(Buffer *buf, int x, int y) {
 }
 
 Cell *current_cell(Buffer *buf) {
-	return get_cell(buf, buf->cursor_col, buf->cursor_row);
+	return get_cell(buf, buf->cursor.col, buf->cursor.row);
 }
 
 void free_attr(Display *dpy, Attributes *attr) {
@@ -96,27 +98,27 @@ void handle_char(Parser *parser, unsigned char c, Buffer *buf) {
 		case BEL:
 			break;
 		case BS:
-			if (buf->cursor_col > 0) --buf->cursor_col;
+			if (buf->cursor.col > 0) --buf->cursor.col;
 			break;
 		case HT:
-			buf->cursor_col += 4;
+			buf->cursor.col += 4;
 			break;
 		case VT:
 		case FF:
 		case LF:
-			buf->cursor_row++;
-			buf->cursor_col = 0;
+			buf->cursor.row++;
+			buf->cursor.col = 0;
 			break;
 		case CR:
-			buf->cursor_col = 0;
+			buf->cursor.col = 0;
 			break;
 		default:
 			current_cell(buf)->c = c;
 			current_cell(buf)->attr = parser->current_attr;
-			buf->cursor_col++;
-			if (buf->cursor_col > MAX_WIDTH) {
-				buf->cursor_col = 0;
-				buf->cursor_row++;
+			buf->cursor.col++;
+			if (buf->cursor.col > MAX_WIDTH) {
+				buf->cursor.col = 0;
+				buf->cursor.row++;
 			}
 	}
 }
@@ -192,14 +194,14 @@ void parse_attr(Attributes *attr, int *argv, int argc) {
 				break;
 			case 38:
 				if (argv[i+1] == 5) { 
-					attr->fg_rgba = 0xFF000000;
+					attr->fg_rgba = 0xFF0000FF;
 				} else if (argv[i+1] == 2) {
 					attr->fg_rgba = pack(argv[i+2], argv[i+3], argv[i+4], 0xFF);
 				}
 				break;
 			case 48:
 				if (argv[i+1] == 5) {
-					attr->bg_rgba = 0xFF000000;
+					attr->bg_rgba = 0xFF0000FF;
 				} else if (argv[i+1] == 2) {
 					attr->bg_rgba = pack(argv[i+2], argv[i+3], argv[i+4], 0xFF);
 
@@ -210,7 +212,7 @@ void parse_attr(Attributes *attr, int *argv, int argc) {
 	} 
 }
 
-void handle_escape(Parser *parser, Escape *esc, Buffer *buf) {
+void handle_escape(Parser *parser, Escape *esc, Buffer *buf, int shell_fd) {
 	switch (esc->code) {
 		case ANSI_NUL:
 			return;
@@ -220,51 +222,52 @@ void handle_escape(Parser *parser, Escape *esc, Buffer *buf) {
 			break;
 #warning LESS REPETITION
 		case CUU:
-			buf->cursor_row -= esc->argc == 0 ? 1 : esc->argv[0];
+			buf->cursor.row -= esc->argc == 0 ? 1 : esc->argv[0];
 			break;
 		case CUD:
-			buf->cursor_row += esc->argc == 0 ? 1 : esc->argv[0];
+			buf->cursor.row += esc->argc == 0 ? 1 : esc->argv[0];
 			break;
 		case CUF:
-			buf->cursor_col += esc->argc == 0 ? 1 : esc->argv[0];
+			buf->cursor.col += esc->argc == 0 ? 1 : esc->argv[0];
 			break;
 		case CUB:
-			buf->cursor_col -= esc->argc == 0 ? 1 : esc->argv[0];
+			buf->cursor.col -= esc->argc == 0 ? 1 : esc->argv[0];
 			break;
 		case CNL:
 			if (esc->argc == 0) {
-				buf->cursor_row++;
-				buf->cursor_col = 0;
+				buf->cursor.row++;
+				buf->cursor.col = 0;
 			} else {
-				buf->cursor_row += esc->argv[0];
-				buf->cursor_col = 0;
+				buf->cursor.row += esc->argv[0];
+				buf->cursor.col = 0;
 			}
 			break;
 		case CPL:
 			if (esc->argc == 0) {
-				buf->cursor_row--;
-				buf->cursor_col = 0;
+				buf->cursor.row--;
+				buf->cursor.col = 0;
 			} else {
-				buf->cursor_row -= esc->argv[0];
-				buf->cursor_col = 0;
+				buf->cursor.row -= esc->argv[0];
+				buf->cursor.col = 0;
 			}
 			break;
 		case CHA:
-			buf->cursor_col = esc->argc == 0 ? 0 : esc->argv[0];
+			buf->cursor.col = esc->argc == 0 ? 0 : esc->argv[0]-1;
 			
 			break;
+		case HVP:
 		case CUP:
 			if (esc->argc == 0) {
-				buf->cursor_row = 0;
-				buf->cursor_col = 0;
+				buf->cursor.row = 0;
+				buf->cursor.col = 0;
 			} else if (esc->argc >= 2){
-			buf->cursor_col = esc->argv[0];
-			buf->cursor_row = esc->argv[1];
+			buf->cursor.col = esc->argv[0]-1;
+			buf->cursor.row = esc->argv[1]-1;
 			}
 			break;
 		case ED:
 			{
-				int offset = buf->cursor_col+(buf->cursor_row*MAX_WIDTH);
+				int offset = buf->cursor.col+(buf->cursor.row*MAX_WIDTH);
 				if (esc->argc == 0 || esc->argv[0] == ED_CLEAR_TO_END) {
 					memset(buf->cells+offset, 0, ((MAX_WIDTH*MAX_HEIGHT)-offset)*sizeof(Cell));
 				} else if (esc->argv[0] == ED_CLEAR_TO_BEGINNING) {
@@ -278,22 +281,46 @@ void handle_escape(Parser *parser, Escape *esc, Buffer *buf) {
 			break;
 		case EL:
 			if (esc->argc == 0 || esc->argv[0] == EL_CLEAR_TO_END) {
-				int offset = buf->cursor_col+(buf->cursor_row*MAX_WIDTH);
-				memset(buf->cells+offset, 0, MAX_WIDTH - buf->cursor_col);
+				int offset = buf->cursor.col+(buf->cursor.row*MAX_WIDTH);
+				memset(buf->cells+offset, 0, MAX_WIDTH - buf->cursor.col);
 			} else if (esc->argv[0] == EL_CLEAR_TO_BEGINNING) {
-				memset(buf->cells+(buf->cursor_row*MAX_WIDTH), 0, buf->cursor_col);
+				memset(buf->cells+(buf->cursor.row*MAX_WIDTH), 0, buf->cursor.col);
 			} else if (esc->argv[0] == EL_CLEAR_LINE) {
-				memset(buf->cells+(buf->cursor_row*MAX_WIDTH), 0, MAX_WIDTH);
+				memset(buf->cells+(buf->cursor.row*MAX_WIDTH), 0, MAX_WIDTH);
 			}
 			break;
 		case SU:
 			break;
 		case SD:
 			break;
-		case HVP:
-			break;
 		case SGR:
 			parse_attr(&parser->current_attr, esc->argv, esc->argc);
+			break;
+		case RR:
+			if (esc->argv[0] == RR_DSR) {
+				char response[32] = {0};
+				sprintf(response, "\033[0n");
+				write(shell_fd, response, strlen(response));
+
+			} else if (esc->argv[0] == RR_CPR) {
+				char pos[32] = {0};
+				sprintf(pos, "\033[%d;%dR", buf->cursor.row, buf->cursor.col);
+				write(shell_fd, pos, strlen(pos));
+			}
+
+		case DECSC:
+			buf->dec_pos = buf->cursor;
+			break;
+		case DECRC:
+			buf->cursor = buf->dec_pos;
+			break;
+		case SCOSC:
+			buf->sco_pos = buf->cursor;
+			break;
+		case SCORC:
+			if (buf->sco_pos.col != -1) {
+				buf->cursor = buf->sco_pos;
+			}
 			break;
 	}
 }

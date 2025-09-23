@@ -41,6 +41,6 @@ void parse_attr(Attributes *attr, int *argv, int argc);
 ParserEvent parse(Parser *parser, unsigned char c);
 
 void handle_char(Parser *parser, unsigned char c, Buffer *buf);
-void handle_escape(Parser *parser, Escape *esc, Buffer *buf);
+void handle_escape(Parser *parser, Escape *esc, Buffer *buf, int shell_fd);
 
 #endif

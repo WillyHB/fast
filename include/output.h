@@ -38,10 +38,18 @@ typedef enum ANSI_ESC_CODE {
 	PEN = 'h', // Private Enable
 	PDI = 'l', // Private Disable
 	RR	= 'n', // Report Request				(CSI x n)
-#warning implement RR
 			   //								x == 5: device status report (respond CSI 0 n for OK)
 			   //								x == 6: cursor position report (respond CSI x;y R)
+	DECSC = 7, // Save Cursor Position
+	DECRC = 8, // Restore Cursor Position
+	SCOSC= 's',// Save Cursor Position
+	SCORC= 'u',// Restore Cursor Position
 } AnsiCode;
+
+typedef enum REPORT_REQUEST {
+	RR_DSR = 5,
+	RR_CPR = 6,
+} ReportRequest;
 
 typedef enum ERASE_DISPLAY_MODE {
 	ED_CLEAR_TO_END = 0,
@@ -185,13 +193,19 @@ typedef struct CELL {
 	Attributes attr;
 } Cell;
 
+typedef struct POSITION {
+	int col, row;
+} Position;
+
 typedef struct BUFFER {
 	Cell *cells;
 	int scroll_offset;
 	int draw_index;
-	int cursor_col;
-	int cursor_row;
+	Position cursor;
+	Position sco_pos;
+	Position dec_pos;
 } Buffer;
+
 
 Buffer *init_output(Display *dpy, const Drawable *window, int screen);
 void close_output(Display*, int);
